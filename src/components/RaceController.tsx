@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
-import { Flag, RefreshCw, Play, ChevronDown, Settings } from "lucide-react";
+import { RefreshCw, Play, ChevronDown, Settings } from "lucide-react";
 import { TransactionCount } from "@/hooks/useChainRace";
 import { raceChains } from "@/chain/networks";
 
@@ -24,7 +24,6 @@ export function RaceController() {
   const { 
     status, 
     startRace, 
-    resetRace,
     restartRace,
     isReady, 
     checkBalances, 
@@ -40,10 +39,9 @@ export function RaceController() {
     } else if (status === "ready") {
       startRace();
     } else if (status === "finished") {
-      // Instead of resetting, just restart with same configuration
-      restartRace();
-      // Now we can immediately start a new race with the same config
-      startRace();
+      // Reset to the ready state so the FundingPhase will be shown again
+      restartRace(); 
+      // The UI will now show FundingPhase again until the user starts a new race
     }
   };
   
@@ -226,8 +224,8 @@ export function RaceController() {
           
           {status === "finished" && (
             <>
-              <Play size={16} className="mr-2" />
-              Start Race
+              <RefreshCw size={16} className="mr-2" />
+              Reset Race
             </>
           )}
         </Button>

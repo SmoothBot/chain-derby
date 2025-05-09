@@ -12,7 +12,7 @@ export const sepoliaTestnet = {
   nativeCurrency: { name: "Ethereum", symbol: "ETH", decimals: 18 },
   rpcUrls: {
     default: {
-      http: ["https://testnet.riselabs.xyz/"],
+      http: ["https://indexing.testnet.riselabs.xyz/"],
     },
   },
   blockExplorers: {

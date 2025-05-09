@@ -27,10 +27,19 @@ export function HorseRace() {
     return a.chainId - b.chainId;
   });
   
+  // Check if the race is finished
+  const { status } = useChainRaceContext();
+  const isRaceFinished = status === "finished";
+  
   return (
     <Card className="w-full">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Horse Race</CardTitle>
+        {isRaceFinished && (
+          <div className="text-sm font-medium text-muted-foreground">
+            Race Results
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <div className="relative">
@@ -49,6 +58,57 @@ export function HorseRace() {
             ))}
           </div>
         </div>
+        
+        {/* Race results table when finished */}
+        {isRaceFinished && sortedResults.some(r => r.position) && (
+          <div className="mt-8 border-t pt-6">
+            <h3 className="text-xl font-semibold mb-4">Leaderboard</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-4">Position</th>
+                    <th className="text-left py-2 px-4">Chain</th>
+                    <th className="text-left py-2 px-4">Avg. Latency</th>
+                    <th className="text-left py-2 px-4">Total Latency</th>
+                    <th className="text-left py-2 px-4">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedResults.map((result) => (
+                    <tr key={result.chainId} className="border-b">
+                      <td className="py-3 px-4">
+                        {result.position || '-'}
+                        {result.position === 1 && <Trophy className="h-4 w-4 text-yellow-500 inline ml-1" />}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{result.emoji}</span>
+                          <span style={{ color: result.color }}>{result.name}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">{result.averageLatency ? `${result.averageLatency}ms` : '-'}</td>
+                      <td className="py-3 px-4">{result.totalLatency ? `${result.totalLatency}ms` : '-'}</td>
+                      <td className="py-3 px-4">
+                        {result.status === "success" ? (
+                          <div className="flex items-center gap-1 text-green-500">
+                            <CheckCircle size={14} /> Success
+                          </div>
+                        ) : result.status === "error" ? (
+                          <div className="flex items-center gap-1 text-red-500">
+                            <XCircle size={14} /> {result.error || "Failed"}
+                          </div>
+                        ) : (
+                          result.status
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -93,6 +153,12 @@ function HorseRaceTrack({ result }: { result: RaceResult }) {
       
       {/* Track */}
       <div className="h-12 ml-12 mr-6 rounded-md bg-accent/15 relative">
+        {/* Chain name (displayed on the track) */}
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 font-medium z-10" 
+             style={{ color: result.color }}>
+          {result.name}
+        </div>
+        
         {/* Horse position */}
         <div 
           className="absolute top-0 left-0 h-full"

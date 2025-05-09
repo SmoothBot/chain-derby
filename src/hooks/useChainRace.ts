@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createPublicClient, createWalletClient, http, type Hex, type Chain } from "viem";
 import { raceChains } from "@/chain/networks";
 import { useEmbeddedWallet } from "./useEmbeddedWallet";
@@ -12,6 +12,7 @@ export interface ChainBalance {
   chainId: number;
   balance: bigint;
   hasBalance: boolean;
+  error?: string;
 }
 
 export interface RaceResult {
@@ -32,63 +33,176 @@ export interface RaceResult {
 
 export type TransactionCount = 1 | 5 | 10 | 20;
 
+// Constants for localStorage keys
+const LOCAL_STORAGE_SELECTED_CHAINS = "horse-race-selected-chains";
+const LOCAL_STORAGE_TX_COUNT = "horse-race-tx-count";
+
 export function useChainRace() {
   const { account, privateKey, isReady, resetWallet } = useEmbeddedWallet();
   const [status, setStatus] = useState<ChainRaceStatus>("idle");
   const [balances, setBalances] = useState<ChainBalance[]>([]);
   const [results, setResults] = useState<RaceResult[]>([]);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
-  const [transactionCount, setTransactionCount] = useState<TransactionCount>(1);
-  const [selectedChains, setSelectedChains] = useState<number[]>(raceChains.map(chain => chain.id));
-
-  // Check balances across selected chains
-  const checkBalances = async () => {
+  const [transactionCount, setTransactionCount] = useState<TransactionCount>(() => {
+    // Load saved transaction count from localStorage if available
+    if (typeof window !== 'undefined') {
+      const savedCount = localStorage.getItem(LOCAL_STORAGE_TX_COUNT);
+      if (savedCount) {
+        const count = parseInt(savedCount, 10) as TransactionCount;
+        if ([1, 5, 10, 20].includes(count)) {
+          return count;
+        }
+      }
+    }
+    return 1;
+  });
+  
+  const [selectedChains, setSelectedChains] = useState<number[]>(() => {
+    // Load saved chain selection from localStorage if available
+    if (typeof window !== 'undefined') {
+      const savedChains = localStorage.getItem(LOCAL_STORAGE_SELECTED_CHAINS);
+      if (savedChains) {
+        try {
+          const parsed = JSON.parse(savedChains) as number[];
+          // Validate that all chains in the saved list are actually valid race chains
+          const validChainIds = raceChains.map(chain => chain.id);
+          const validSavedChains = parsed.filter(id => validChainIds.includes(id));
+          
+          if (validSavedChains.length > 0) {
+            return validSavedChains;
+          }
+        } catch (e) {
+          console.error('Failed to parse saved chain selection:', e);
+        }
+      }
+    }
+    // Default to all chains if no saved selection or invalid
+    return raceChains.map(chain => chain.id);
+  });
+  
+  // Effect to save chain selection to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && selectedChains.length > 0) {
+      localStorage.setItem(LOCAL_STORAGE_SELECTED_CHAINS, JSON.stringify(selectedChains));
+    }
+  }, [selectedChains]);
+  
+  // Effect to save transaction count to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_TX_COUNT, transactionCount.toString());
+    }
+  }, [transactionCount]);
+  
+  // Define checkBalances before using it in useEffect
+  const checkBalances = useCallback(async () => {
     if (!account) return;
     
     setIsLoadingBalances(true);
     
     try {
       // Filter chains based on selection
-      const activeChains = raceChains.filter(chain => selectedChains.includes(chain.id));
+      const allChains = raceChains; // Check balances for all chains regardless of selection
       
       // Log active chains for debugging
-      console.log('Checking balances for chains:', activeChains.map(c => ({ id: c.id, name: c.name })));
+      console.log('Checking balances for chains:', allChains.map(c => ({ id: c.id, name: c.name })));
       console.log('Current wallet address:', account.address);
       
-      const balancePromises = activeChains.map(async (chain) => {
-        const client = createPublicClient({
-          chain,
-          transport: http(),
+      // Add a small delay to avoid overwhelming network requests on page load
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const balancePromises = allChains.map(async (chain) => {
+        // Function to attempt a balance check with retries
+        const attemptBalanceCheck = async (retryCount = 0, maxRetries = 3): Promise<{ 
+          chainId: number, 
+          balance: bigint, 
+          hasBalance: boolean, 
+          error?: string 
+        }> => {
+          try {
+            // Create client with timeout options - increase timeout for initial page load
+            const client = createPublicClient({
+              chain,
+              transport: http(),
+            });
+            console.log(client)
+            
+            // Log RPC URL used
+            console.log(`Checking balance on ${chain.name} using RPC:`, chain.rpcUrls.default.http[0]);
+            
+            const balance = await client.getBalance({ address: account.address });
+            
+            // Log the actual balance value
+            console.log(`${chain.name} balance:`, balance.toString(), 'Has sufficient funds:', balance > BigInt(1e16));
+            
+            // Reduced balance threshold for testing (0.001 tokens instead of 0.01)
+            const hasBalance = balance > BigInt(1e14);
+            
+            return {
+              chainId: chain.id,
+              balance,
+              hasBalance,
+            };
+          } catch (error) {
+            console.error(`Failed to get balance for chain ${chain.id} (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
+            
+            // Retry logic
+            if (retryCount < maxRetries) {
+              // Exponential backoff: 1s, 2s, 4s, etc.
+              const backoffTime = 1000 * Math.pow(2, retryCount);
+              console.log(`Retrying ${chain.name} in ${backoffTime}ms...`);
+              await new Promise(resolve => setTimeout(resolve, backoffTime));
+              return attemptBalanceCheck(retryCount + 1, maxRetries);
+            }
+            
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            return {
+              chainId: chain.id,
+              balance: BigInt(0),
+              hasBalance: false,
+              error: errorMessage,
+            };
+          }
+        };
+        
+        // Wrap in a timeout to ensure the promise resolves eventually
+        const timeoutPromise = new Promise<{ 
+          chainId: number, 
+          balance: bigint, 
+          hasBalance: boolean, 
+          error?: string 
+        }>((_, reject) => {
+          setTimeout(() => reject(new Error(`RPC request timed out for ${chain.name}`)), 30000);
         });
         
-        try {
-          // Log RPC URL used
-          console.log(`Checking balance on ${chain.name} using RPC:`, chain.rpcUrls.default.http[0]);
-          
-          const balance = await client.getBalance({ address: account.address });
-          
-          // Log the actual balance value
-          console.log(`${chain.name} balance:`, balance.toString(), 'Has sufficient funds:', balance > BigInt(1e16));
-          
-          // Reduced balance threshold for testing (0.001 tokens instead of 0.01)
-          const hasBalance = balance > BigInt(1e14);
-          
-          return {
-            chainId: chain.id,
-            balance,
-            hasBalance, 
-          };
-        } catch (error) {
-          console.error(`Failed to get balance for chain ${chain.id}:`, error);
-          return {
-            chainId: chain.id,
-            balance: BigInt(0),
-            hasBalance: false,
-          };
-        }
+        // Race the balance check with the timeout
+        return Promise.race([attemptBalanceCheck(), timeoutPromise])
+          .catch(error => {
+            console.error(`Ultimate failure checking balance for ${chain.name}:`, error);
+            return {
+              chainId: chain.id,
+              balance: BigInt(0),
+              hasBalance: false,
+              error: error instanceof Error 
+                ? `Request failed: ${error.message}` 
+                : "Unknown error checking balance",
+            };
+          });
       });
       
       const newBalances = await Promise.all(balancePromises);
+      
+      // Log any errors that occurred during balance checks
+      newBalances.forEach(balance => {
+        if (balance.error) {
+          const chain = raceChains.find(c => c.id === balance.chainId);
+          console.warn(`Error checking balance for ${chain?.name || balance.chainId}: ${balance.error}`);
+        }
+      });
+      
+      // Don't update state if component unmounted during the operation
+      if (!account) return;
+      
       setBalances(newBalances);
       
       console.log('New balances:', newBalances);
@@ -97,18 +211,34 @@ export function useChainRace() {
       const allFunded = newBalances.every(b => b.hasBalance);
       console.log('All chains funded:', allFunded, 'Current status:', status);
       
-      // Set to ready if all chains are funded, regardless of current status
-      if (allFunded) {
-        setStatus("ready");
-      } else if (status === "idle") {
-        setStatus("funding");
+      // Only update status if not in racing or finished state
+      console.log('status', status)
+      if (status !== "racing" && status !== "finished") {
+        if (allFunded) {
+          setStatus("ready");
+        } else if (status === "idle") {
+          setStatus("funding");
+        }
       }
     } catch (error) {
       console.error("Failed to check balances:", error);
     } finally {
       setIsLoadingBalances(false);
     }
-  };
+  }, [account, status, setBalances, setStatus, setIsLoadingBalances]);
+  
+  // Effect to check balances automatically when wallet is ready
+  useEffect(() => {
+    if (isReady && account && status !== "racing" && status !== "finished") {
+      console.log("Wallet is ready, automatically checking balances");
+      // Add a small delay to ensure everything is fully initialized
+      const timer = setTimeout(() => {
+        checkBalances();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isReady, account, status, checkBalances]);
 
   // Create a wallet client - defined at hook level to avoid ESLint warnings
   const createClient = (chain: Chain) => {
@@ -416,18 +546,19 @@ export function useChainRace() {
                 throw new Error(`Invalid transaction format for MegaETH tx #${txIndex}: ${typeof txToSend}`);
               }
               
-              // Create a custom request to use the realtime_sendRawTransaction method
-              const receipt = await publicClient!.request({
-                method: 'realtime_sendRawTransaction',
+              // Create a custom request to use the standard send transaction method
+              // MegaETH devs intended realtime_sendRawTransaction but it's not a standard method
+              const txHashResult = await publicClient!.request({
+                method: 'eth_sendRawTransaction',
                 params: [txToSend as `0x${string}`]
               });
               
-              // Verify receipt
-              if (!receipt || !receipt.transactionHash) {
-                throw new Error(`MegaETH realtime transaction sent but no receipt returned for tx #${txIndex}`);
+              // The result is the transaction hash directly
+              if (!txHashResult) {
+                throw new Error(`MegaETH transaction sent but no hash returned for tx #${txIndex}`);
               }
               
-              txHash = receipt.transactionHash as Hex;
+              txHash = txHashResult as Hex;
               
               // Calculate transaction latency for MegaETH
               const txEndTime = Date.now();
