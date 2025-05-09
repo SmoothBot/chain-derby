@@ -207,16 +207,29 @@ export function useChainRace() {
       
       console.log('New balances:', newBalances);
       
-      // If all chains have balance, set status to ready
-      const allFunded = newBalances.every(b => b.hasBalance);
-      console.log('All chains funded:', allFunded, 'Current status:', status);
+      // Only consider selected chains for determining if all are funded
+      const selectedBalances = newBalances.filter(b => 
+        selectedChains.includes(b.chainId)
+      );
+      
+      // Log each chain's funding status
+      selectedBalances.forEach(balance => {
+        const chain = raceChains.find(c => c.id === balance.chainId);
+        console.log(`${chain?.name || balance.chainId} funded:`, balance.hasBalance);
+      });
+      
+      // If all selected chains have balance, set status to ready
+      const allFunded = selectedBalances.length > 0 && selectedBalances.every(b => b.hasBalance);
+      console.log('All selected chains funded:', allFunded, 'Current status:', status);
       
       // Only update status if not in racing or finished state
-      console.log('status', status)
+      console.log('Current status:', status, 'All chains funded:', allFunded);
       if (status !== "racing" && status !== "finished") {
         if (allFunded) {
+          console.log('All chains have balance, setting status to ready');
           setStatus("ready");
-        } else if (status === "idle") {
+        } else if (status === "idle" || status === "funding") {
+          console.log('Not all chains funded, setting status to funding');
           setStatus("funding");
         }
       }
@@ -225,7 +238,7 @@ export function useChainRace() {
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [account, status, setBalances, setStatus, setIsLoadingBalances]);
+  }, [account, status, selectedChains, setBalances, setStatus, setIsLoadingBalances]);
   
   // Effect to check balances automatically when wallet is ready
   useEffect(() => {
