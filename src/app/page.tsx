@@ -49,7 +49,7 @@ export default function Home() {
           <div className="grid gap-8">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
               <div className="text-center sm:text-left py-2">
-                <h1 className="text-3xl sm:text-4xl font-bold mb-2">EVM Chain Race</h1>
+                <h1 className="text-3xl sm:text-4xl mb-2">EVM Chain Race</h1>
                 <p className="text-muted-foreground text-sm sm:text-base">
                   Compare transaction speeds across different EVM-compatible blockchains
                 </p>
@@ -105,7 +105,7 @@ export default function Home() {
               </div>
             </Card>
             <div className="text-center text-sm text-muted-foreground py-4">
-              <p>© 2024 RISE Protocol</p>
+              <p>© Speedy Lads Limitted</p>
             </div>
           </div>
           </div>
