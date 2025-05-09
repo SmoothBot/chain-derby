@@ -207,29 +207,43 @@ export function useChainRace() {
       
       console.log('New balances:', newBalances);
       
+      // Log selected chains first
+      console.log('Selected chains:', selectedChains);
+      
       // Only consider selected chains for determining if all are funded
       const selectedBalances = newBalances.filter(b => 
         selectedChains.includes(b.chainId)
       );
       
+      console.log('Selected chain balances:', selectedBalances);
+      
       // Log each chain's funding status
       selectedBalances.forEach(balance => {
         const chain = raceChains.find(c => c.id === balance.chainId);
-        console.log(`${chain?.name || balance.chainId} funded:`, balance.hasBalance);
+        console.log(`${chain?.name || balance.chainId} funded:`, balance.hasBalance, 'with balance:', balance.balance.toString());
       });
       
       // If all selected chains have balance, set status to ready
-      const allFunded = selectedBalances.length > 0 && selectedBalances.every(b => b.hasBalance);
-      console.log('All selected chains funded:', allFunded, 'Current status:', status);
+      const allSelectedFunded = selectedBalances.length > 0 && selectedBalances.every(b => b.hasBalance);
+      console.log('All selected chains funded:', allSelectedFunded, 'Current status:', status);
+      
+      // Only proceed with FUNDED chains
+      const fundedChains = selectedBalances.filter(b => b.hasBalance).map(b => b.chainId);
+      console.log('Chains with funding:', fundedChains);
       
       // Only update status if not in racing or finished state
-      console.log('Current status:', status, 'All chains funded:', allFunded);
       if (status !== "racing" && status !== "finished") {
-        if (allFunded) {
-          console.log('All chains have balance, setting status to ready');
+        if (allSelectedFunded && selectedBalances.length > 0) {
+          console.log('All selected chains have balance, setting status to ready');
           setStatus("ready");
-        } else if (status === "idle" || status === "funding") {
-          console.log('Not all chains funded, setting status to funding');
+        } else if (fundedChains.length > 0) {
+          console.log('Some chains funded, but not all selected chains. Setting status to ready anyway.');
+          // If at least one chain is funded, allow race to start with those chains
+          setStatus("ready");
+          // Update selected chains to only those that are funded
+          setSelectedChains(fundedChains);
+        } else {
+          console.log('No chains funded, setting status to funding');
           setStatus("funding");
         }
       }

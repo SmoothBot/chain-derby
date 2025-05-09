@@ -84,6 +84,9 @@ export function RaceController() {
     );
   }
   
+  // Display the current status in dev mode for debugging
+  console.log("RaceController rendering with status:", status);
+  
   return (
     <Card className="w-full">
       <CardHeader>
@@ -191,8 +194,12 @@ export function RaceController() {
           
           <p className="text-sm text-muted-foreground mt-2">
             {status === "idle" && "Check your balances to see if you're ready to race"}
-            {status === "funding" && "Send funds to your wallet on each chain to participate"}
-            {status === "ready" && `All chains funded and ready to go! (${transactionCount} tx per chain)`}
+            {status === "funding" && 
+              selectedChains.length > 0 
+                ? `Send funds to your wallet on the selected chains (${selectedChains.length} selected)` 
+                : "Send funds to your wallet on at least one chain to participate"
+            }
+            {status === "ready" && `${selectedChains.length} chain${selectedChains.length !== 1 ? 's' : ''} ready for racing (${transactionCount} tx per chain)`}
             {status === "racing" && `Waiting for all chains to complete ${transactionCount} transactions...`}
             {status === "finished" && "Race completed! Start another race with the same configuration."}
           </p>
