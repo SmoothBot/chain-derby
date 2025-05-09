@@ -380,41 +380,11 @@ export function useChainRace() {
                 throw new Error(`Invalid transaction format for ${chain.name} tx #${txIndex}: ${typeof txToSend}`);
               }
               
-              // Special handling for Monad to try to fix the issue
-              if (chain.id === 10143) {
-                try {
-                  console.log("Using direct fetch for Monad instead of viem client");
-                  // Try a direct fetch approach as a workaround for Monad
-                  const response = await fetch("https://testnet-rpc.monad.xyz", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      jsonrpc: "2.0",
-                      id: 1,
-                      method: "eth_sendRawTransaction",
-                      params: [txToSend]
-                    })
-                  });
-                  
-                  const data = await response.json();
-                  console.log("Monad direct fetch response:", data);
-                  
-                  if (data.error) {
-                    throw new Error(`Monad RPC error: ${JSON.stringify(data.error)}`);
-                  }
-                  
-                  txHash = data.result;
-                } catch (directError) {
-                  console.error("Direct fetch to Monad failed:", directError);
-                  throw directError;
-                }
-              } else {
-                // Normal path for non-Monad chains
-                // Send the raw transaction - wagmi v2 changed the API
-                txHash = await publicClient!.sendRawTransaction({
-                  serializedTransaction: txToSend as `0x${string}`
-                });
-              }
+              // Normal path for non-Monad chains
+              // Send the raw transaction - wagmi v2 changed the API
+              txHash = await publicClient!.sendRawTransaction({
+                serializedTransaction: txToSend as `0x${string}`
+              });
               
               if (!txHash) {
                 throw new Error(`Transaction sent but no hash returned for ${chain.name} tx #${txIndex}`);
@@ -445,6 +415,8 @@ export function useChainRace() {
               
               // Wait for transaction to be confirmed
               await publicClient!.waitForTransactionReceipt({ 
+                pollingInterval: 0,
+                retryDelay: 0,
                 hash: txHash,
                 timeout: 60_000, // 60 seconds timeout
               });
