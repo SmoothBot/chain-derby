@@ -112,7 +112,7 @@ function HorseRaceTrack({ result }: { result: RaceResult }) {
         </div>
         
         {/* Status indicator */}
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2  mr-10">
           {result.status === "pending" && (
             <Badge variant="outline" className="bg-background flex items-center gap-1">
               <Clock size={14} /> Pending

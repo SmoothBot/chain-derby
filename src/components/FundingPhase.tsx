@@ -90,19 +90,7 @@ export function FundingPhase() {
             );
           })}
         </div>
-        
-        <div className="mt-4 text-sm">
-          <span className="font-medium">Need test tokens?</span>
-          <ul className="list-disc ml-5 mt-2 space-y-1">
-            <li>Ethereum Sepolia: <a href="https://sepoliafaucet.com/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Sepolia Faucet</a></li>
-            <li>Polygon Mumbai: <a href="https://faucet.polygon.technology/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Polygon Faucet</a></li>
-            <li>Arbitrum Sepolia: <a href="https://sepolia-faucet.arbitrum.io/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Arbitrum Sepolia Faucet</a></li>
-            <li>Optimism Sepolia: <a href="https://www.optimism.io/faucets" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Optimism Faucets</a></li>
-            <li>Base Sepolia: <a href="https://www.coinbase.com/faucets/base-sepolia-faucet" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Base Sepolia Faucet</a></li>
-            <li>RISE Testnet: <a href="https://faucet.testnet.riselabs.xyz/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">RISE Faucet</a></li>
-            <li>Monad Testnet: <a href="https://faucet.monad.xyz/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Monad Faucet</a></li>
-          </ul>
-        </div>
+
       </CardContent>
     </Card>
   );

@@ -39,19 +39,23 @@ export function useChainRace() {
   const [results, setResults] = useState<RaceResult[]>([]);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [transactionCount, setTransactionCount] = useState<TransactionCount>(1);
+  const [selectedChains, setSelectedChains] = useState<number[]>(raceChains.map(chain => chain.id));
 
-  // Check balances across all chains
+  // Check balances across selected chains
   const checkBalances = async () => {
     if (!account) return;
     
     setIsLoadingBalances(true);
     
     try {
+      // Filter chains based on selection
+      const activeChains = raceChains.filter(chain => selectedChains.includes(chain.id));
+      
       // Log active chains for debugging
-      console.log('Checking balances for chains:', raceChains.map(c => ({ id: c.id, name: c.name })));
+      console.log('Checking balances for chains:', activeChains.map(c => ({ id: c.id, name: c.name })));
       console.log('Current wallet address:', account.address);
       
-      const balancePromises = raceChains.map(async (chain) => {
+      const balancePromises = activeChains.map(async (chain) => {
         const client = createPublicClient({
           chain,
           transport: http(),
@@ -67,7 +71,7 @@ export function useChainRace() {
           console.log(`${chain.name} balance:`, balance.toString(), 'Has sufficient funds:', balance > BigInt(1e16));
           
           // Reduced balance threshold for testing (0.001 tokens instead of 0.01)
-          const hasBalance = balance > BigInt(1e15);
+          const hasBalance = balance > BigInt(1e14);
           
           return {
             chainId: chain.id,
@@ -93,7 +97,8 @@ export function useChainRace() {
       const allFunded = newBalances.every(b => b.hasBalance);
       console.log('All chains funded:', allFunded, 'Current status:', status);
       
-      if (allFunded && status === "funding") {
+      // Set to ready if all chains are funded, regardless of current status
+      if (allFunded) {
         setStatus("ready");
       } else if (status === "idle") {
         setStatus("funding");
@@ -118,11 +123,14 @@ export function useChainRace() {
     });
   };
   
-  // Start the race across all chains
+  // Start the race across selected chains
   const startRace = async () => {
     if (!account || !privateKey || status !== "ready") return;
     
     setStatus("racing");
+    
+    // Filter chains based on selection
+    const activeChains = raceChains.filter(chain => selectedChains.includes(chain.id));
     
     // Pre-fetch all chain data needed for transactions
     const chainData = new Map<number, {
@@ -135,8 +143,8 @@ export function useChainRace() {
     }>();
     
     try {
-      // Fetch all chain data in parallel
-      const chainDataPromises = raceChains.map(async (chain) => {
+      // Fetch chain data in parallel for selected chains
+      const chainDataPromises = activeChains.map(async (chain) => {
         try {
           console.time(`prefetch-chain-${chain.id}`);
           const client = createPublicClient({
@@ -151,8 +159,24 @@ export function useChainRace() {
               address: account.address,
             }),
             
-            // Get current fee data
-            client.getGasPrice().catch(() => BigInt(chain.id === 10143 ? 60000000000 : 1000000000)),
+            // Get current fee data and double it for better confirmation chances
+            client.getGasPrice().then(gasPrice => {
+              console.log(`Fetched gas price for ${chain.name}: ${gasPrice.toString()} wei`);
+              const doubledGasPrice = gasPrice * BigInt(2);
+              console.log(`Using 2x gas price for ${chain.name}: ${doubledGasPrice.toString()} wei`);
+              return doubledGasPrice;
+            }).catch(error => {
+              console.error(`Failed to get gas price for ${chain.name}:`, error);
+              // Fallback gas prices based on known chain requirements
+              const fallbackGasPrice = BigInt(
+                chain.id === 10143 ? 60000000000 : // Monad has higher gas requirements
+                chain.id === 8453 ? 2000000000 :   // Base mainnet
+                chain.id === 17180 ? 1500000000 :  // Sonic
+                1000000000                         // Default fallback (1 gwei)
+              );
+              console.log(`Using fallback gas price for ${chain.name}: ${fallbackGasPrice.toString()} wei`);
+              return fallbackGasPrice;
+            }),
             
             // Get latest block to ensure we have chain state
             client.getBlock().catch(() => null)
@@ -226,11 +250,22 @@ export function useChainRace() {
           };
         } catch (error) {
           console.error(`Failed to get chain data for ${chain.name}:`, error);
+          // Use specific fallback gas prices based on chain
+          const fallbackGasPrice = BigInt(
+            chain.id === 10143 ? 60000000000 : // Monad has higher gas requirements
+            chain.id === 8453 ? 2000000000 :   // Base mainnet
+            chain.id === 17180 ? 1500000000 :  // Sonic
+            chain.id === 6342 ? 3000000000 :   // MegaETH
+            1000000000                         // Default fallback (1 gwei)
+          );
+          
+          console.log(`Using fallback gas price for ${chain.name} due to error: ${fallbackGasPrice.toString()} wei`);
+          
           return {
             chainId: chain.id,
             nonce: 0,
             chainId_numeric: chain.id,
-            gasPrice: BigInt(chain.id === 10143 ? 60000000000 : 1000000000),
+            gasPrice: fallbackGasPrice,
             signedTransactions: [],
           };
         }
@@ -245,8 +280,8 @@ export function useChainRace() {
       console.error("Error prefetching chain data:", error);
     }
     
-    // Reset results
-    const initialResults = raceChains.map(chain => ({
+    // Reset results for active chains only
+    const initialResults = activeChains.map(chain => ({
       chainId: chain.id,
       name: chain.name,
       color: chain.color,
@@ -259,8 +294,8 @@ export function useChainRace() {
     
     setResults(initialResults);
     
-    // Run transactions in parallel for each chain
-    raceChains.forEach(async (chain) => {
+    // Run transactions in parallel for each active chain
+    activeChains.forEach(async (chain) => {
       try {
         // Update status to racing for this chain
         setResults(prev => 
@@ -292,9 +327,18 @@ export function useChainRace() {
             const txStartTime = Date.now(); // Start time for this individual transaction
             
             // Get pre-fetched chain data including pre-signed transactions
+            // Using more specific fallback gas prices if chain data isn't available
+            const fallbackGasPrice = BigInt(
+              chain.id === 10143 ? 60000000000 : // Monad has higher gas requirements
+              chain.id === 8453 ? 2000000000 :   // Base mainnet
+              chain.id === 6342 ? 3000000000 :   // MegaETH 
+              chain.id === 17180 ? 1500000000 :  // Sonic
+              1000000000                         // Default fallback (1 gwei)
+            );
+            
             const currentChainData = chainData.get(chain.id) || {
               nonce: 0,
-              gasPrice: BigInt(chain.id === 10143 ? 60000000000 : 1000000000),
+              gasPrice: fallbackGasPrice,
               chainId_numeric: chain.id,
               signedTransactions: []
             };
@@ -355,6 +399,41 @@ export function useChainRace() {
               txLatency = txEndTime - txStartTime; // Using outer txLatency variable here
               console.log(`RISE transaction #${txIndex} completed in ${txLatency}ms`);
               console.timeEnd('sending');
+            } else if (chain.id === 6342) {
+              // For MegaETH testnet, use the custom realtime_sendRawTransaction method
+              console.time('megaeth-realtime-tx');
+              
+              // Use pre-signed transaction if available, otherwise sign now
+              const txToSend = signedTransaction;
+              
+              // Check if we have a valid transaction
+              if (!txToSend || typeof txToSend !== 'string') {
+                throw new Error(`Invalid transaction format for MegaETH tx #${txIndex}`);
+              }
+              
+              // Explicitly verify the transaction is a valid string before sending
+              if (typeof txToSend !== 'string' || !txToSend.startsWith('0x')) {
+                throw new Error(`Invalid transaction format for MegaETH tx #${txIndex}: ${typeof txToSend}`);
+              }
+              
+              // Create a custom request to use the realtime_sendRawTransaction method
+              const receipt = await publicClient!.request({
+                method: 'realtime_sendRawTransaction',
+                params: [txToSend as `0x${string}`]
+              });
+              
+              // Verify receipt
+              if (!receipt || !receipt.transactionHash) {
+                throw new Error(`MegaETH realtime transaction sent but no receipt returned for tx #${txIndex}`);
+              }
+              
+              txHash = receipt.transactionHash as Hex;
+              
+              // Calculate transaction latency for MegaETH
+              const txEndTime = Date.now();
+              txLatency = txEndTime - txStartTime;
+              console.log(`MegaETH transaction #${txIndex} completed in ${txLatency}ms`);
+              console.timeEnd('megaeth-realtime-tx');
             } else {
               console.time('standard-tx');
               
@@ -407,8 +486,8 @@ export function useChainRace() {
               )
             );
             
-            // For non-RISE chains, we need to wait for confirmation
-            if (chain.id !== 11155931) {
+            // For non-RISE and non-MegaETH chains, we need to wait for confirmation
+            if (chain.id !== 11155931 && chain.id !== 6342) {
               console.time(`tx-${txIndex}-confirm`);
               // Start confirmation timer
               const confirmStartTime = Date.now();
@@ -567,6 +646,13 @@ export function useChainRace() {
     setResults([]);
   };
   
+  // Start a new race with the same configuration (when already in finished state)
+  const restartRace = () => {
+    // Keep the balances but reset the results
+    setStatus("ready");
+    setResults([]);
+  };
+  
   // Skip a specific chain during the race
   const skipChain = (chainId: number) => {
     setResults(prev => 
@@ -592,6 +678,7 @@ export function useChainRace() {
     checkBalances,
     startRace,
     resetRace,
+    restartRace,
     skipChain,
     isReady,
     account,
@@ -599,5 +686,7 @@ export function useChainRace() {
     transactionCount,
     setTransactionCount,
     resetWallet,
+    selectedChains,
+    setSelectedChains,
   };
 }

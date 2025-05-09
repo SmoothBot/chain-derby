@@ -1,4 +1,5 @@
 import { Chain } from "viem";
+import { sonic, base, megaethTestnet } from "viem/chains";
 import { sepoliaTestnet as riseSepoliaConfig } from "./sepolia";
 
 export interface ChainConfig extends Chain {
@@ -126,8 +127,8 @@ export interface ChainConfig extends Chain {
 export const riseTestnet = {
   ...riseSepoliaConfig,
   testnet: true,
-  color: "#00C2FF",
-  emoji: "🚀",
+  color: "#7967E5",
+  emoji: "🐎",
 } as const as ChainConfig;
 
 // Monad Testnet
@@ -150,8 +151,31 @@ export const monadTestnet = {
     },
   },
   testnet: true,
-  color: "#9400D3", // Purple color for Monad
-  emoji: "🔮", // Crystal ball for Monad
+  color: "#200053", // Purple color for Monad
+  emoji: "🐎", // Crystal ball for Monad
+} as const as ChainConfig;
+
+// MegaETH Testnet
+export const megaEthTestnet = {
+  ...megaethTestnet,
+  color: "#8e8d8f", // Blue color for MegaETH
+  emoji: "🐎", // Lightning bolt for speed
+} as const as ChainConfig;
+
+// Base Mainnet
+export const baseMainnet = {
+  ...base,
+  testnet: false,
+  color: "#0052FF", // Blue color for Base
+  emoji: "🐎", // Blue circle for Base
+} as const as ChainConfig;
+
+// Sonic Testnet
+export const sonicMainnet = {
+  ...sonic,
+  testnet: false,
+  color: "#00AEE9", // Teal/Blue color for Sonic
+  emoji: "🐎", // Sonic theme
 } as const as ChainConfig;
 
 // Add the chains we want to include in the race
@@ -163,7 +187,12 @@ export const raceChains = [
   // baseSepolia,
   riseTestnet,
   monadTestnet,
+  megaEthTestnet,
+  baseMainnet,
+  sonicMainnet,
 ];
+
+
 
 // Keep this for compatibility
 export const supportedChains = raceChains.map(chain => ({ chainId: chain.id }));

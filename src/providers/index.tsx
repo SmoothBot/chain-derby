@@ -1,7 +1,6 @@
 "use client";
 
 import { config } from "@/chain/config";
-import { SidebarProvider } from "@/components/ui";
 import { WagmiProvider } from "wagmi";
 import { ModalProvider } from "./ModalProvider";
 import { PageProvider } from "./PageProvider";
@@ -21,7 +20,7 @@ export function AppProvider({ children }: Readonly<AppProviderProps>) {
           <ChainRaceProvider>
             <PageProvider>
               <ModalProvider>
-                <SidebarProvider>{children}</SidebarProvider>
+                {children}
               </ModalProvider>
             </PageProvider>
           </ChainRaceProvider>
