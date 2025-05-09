@@ -1,0 +1,71 @@
+.dark,
+.dark-theme {
+  --lime-1: #000;
+  --lime-2: #0f1309;
+  --lime-3: #1e2512;
+  --lime-4: #2a3419;
+  --lime-5: #35421f;
+  --lime-6: #415025;
+  --lime-7: #4e612d;
+  --lime-8: #5d7434;
+  --lime-9: #c7f86b;
+  --lime-10: #c1ec74;
+  --lime-11: #bbe66e;
+  --lime-12: #e0f8bc;
+
+  --lime-a1: #00000000;
+  --lime-a2: #caff7913;
+  --lime-a3: #cfff7d25;
+  --lime-a4: #ceff7b34;
+  --lime-a5: #cdff7842;
+  --lime-a6: #d0ff7650;
+  --lime-a7: #ceff7761;
+  --lime-a8: #cdff7374;
+  --lime-a9: #cdff6ef8;
+  --lime-a10: #d1ff7dec;
+  --lime-a11: #cfff7ae6;
+  --lime-a12: #e6ffc1f8;
+
+  --lime-contrast: #1d250f;
+  --lime-surface: #1e261280;
+  --lime-indicator: #c7f86b;
+  --lime-track: #c7f86b;
+}
+
+@supports (color: color(display-p3 1 1 1)) {
+  @media (color-gamut: p3) {
+    .dark,
+    .dark-theme {
+      --lime-1: oklch(0% 0.0142 125.8);
+      --lime-2: oklch(17.8% 0.019 125.8);
+      --lime-3: oklch(25.1% 0.0342 125.8);
+      --lime-4: oklch(30.7% 0.0473 125.8);
+      --lime-5: oklch(35.7% 0.0584 125.8);
+      --lime-6: oklch(40.8% 0.0685 125.8);
+      --lime-7: oklch(46.3% 0.0792 125.8);
+      --lime-8: oklch(52.4% 0.0934 125.8);
+      --lime-9: oklch(91.7% 0.1765 125.8);
+      --lime-10: oklch(88.8% 0.1557 125.8);
+      --lime-11: oklch(87% 0.1557 125.8);
+      --lime-12: oklch(94.6% 0.0812 125.8);
+
+      --lime-a1: color(display-p3 0 0 0 / 0);
+      --lime-a2: color(display-p3 0.8392 0.9961 0.5255 / 0.075);
+      --lime-a3: color(display-p3 0.8353 0.9961 0.5373 / 0.146);
+      --lime-a4: color(display-p3 0.8471 1 0.5412 / 0.204);
+      --lime-a5: color(display-p3 0.851 1 0.5333 / 0.259);
+      --lime-a6: color(display-p3 0.851 1 0.5255 / 0.314);
+      --lime-a7: color(display-p3 0.8549 1 0.5412 / 0.377);
+      --lime-a8: color(display-p3 0.8549 1 0.5255 / 0.451);
+      --lime-a9: color(display-p3 0.8471 1 0.5137 / 0.969);
+      --lime-a10: color(display-p3 0.8588 1 0.5608 / 0.922);
+      --lime-a11: color(display-p3 0.8549 1 0.549 / 0.899);
+      --lime-a12: color(display-p3 0.9255 1 0.7843 / 0.969);
+
+      --lime-contrast: #1d250f;
+      --lime-surface: color(display-p3 0.1255 0.149 0.0784 / 0.5);
+      --lime-indicator: oklch(91.7% 0.1765 125.8);
+      --lime-track: oklch(91.7% 0.1765 125.8);
+    }
+  }
+}
