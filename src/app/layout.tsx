@@ -29,9 +29,9 @@ const fkGrotesk = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Rise Testnet",
+  title: "RISE Testnet",
   description:
-    "Rise Testnet Explorer - Explore tokens, applications, and more on the Rise Testnet",
+    "RISE Testnet Explorer - Explore tokens, applications, and more on the RISE Testnet",
   icons: {
     icon: [
       { url: "/favicon_light.svg", media: "(prefers-color-scheme: light)" },

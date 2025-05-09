@@ -323,7 +323,7 @@ export function useChainRace() {
             
             if (chain.id === 11155931) {
               // For RISE testnet, use the sync client
-              const riseSyncClient = createSyncPublicClient({
+              const RISESyncClient = createSyncPublicClient({
                 chain,
                 transport: syncTransport(chain.rpcUrls.default.http[0]),
               });
@@ -333,7 +333,7 @@ export function useChainRace() {
               
               console.time('sending');
               // Send the transaction and get receipt in one call
-              const receipt = await riseSyncClient.sendRawTransactionSync(txToSend);
+              const receipt = await RISESyncClient.sendRawTransactionSync(txToSend);
               
               // Verify receipt
               if (!receipt || !receipt.transactionHash) {

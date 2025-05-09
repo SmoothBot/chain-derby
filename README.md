@@ -1,4 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EVM Chain Race
+
+This repository contains a Next.js application designed to compare the performance of the **RISE testnet** against other EVM-compatible blockchains. The application provides a visual "horse race" to directly compare transaction speeds and latencies across different chains.
+
+## Purpose
+
+The primary goal of this application is to:
+
+1. Demonstrate the superior performance of the RISE testnet compared to other EVM chains
+2. Provide a visual and interactive way to measure transaction latencies 
+3. Compare both average and total latency metrics across multiple transactions
+4. Showcase the benefits of RISE's high-performance blockchain architecture
+
+## Features
+
+- Interactive race visualization showing real-time transaction progress
+- Support for multiple transaction count modes (1, 5, 10, or 20 transactions)
+- Detailed metrics including average latency and total latency
+- Embedded wallet for easy testing across multiple chains
+- Simple funding process with faucet links
+- Pre-signed transaction optimization for accurate timing
+
+## Supported Chains
+
+The application currently supports racing against these EVM-compatible chains:
+- RISE Testnet
+- Sepolia
+- Holesky
+- Base Sepolia
+- Polygon Mumbai
+- Optimism Sepolia
+- Arbitrum Sepolia
+- Monad Testnet
 
 ## Getting Started
 
@@ -14,23 +46,19 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How It Works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. An embedded wallet is automatically generated and stored in your browser
+2. Fund your wallet using the provided faucet links for each chain
+3. Select the number of transactions to run (1, 5, 10, or 20)
+4. Start the race and watch the real-time results
+5. Compare the performance metrics to see which chain is fastest
 
-## Learn More
+## Built With
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js](https://nextjs.org) - React framework
+- [Viem](https://viem.sh) - Ethereum library for transaction handling
+- [Radix UI](https://www.radix-ui.com) - UI component library
+- [Tailwind CSS](https://tailwindcss.com) - Styling
