@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createPublicClient, createWalletClient, http, type Hex } from "viem";
+import { createPublicClient, createWalletClient, http, type Hex, type Chain } from "viem";
 import { raceChains } from "@/chain/networks";
 import { useEmbeddedWallet } from "./useEmbeddedWallet";
 import { createSyncPublicClient, syncTransport } from "rise-shred-client";
@@ -33,7 +33,7 @@ export interface RaceResult {
 export type TransactionCount = 1 | 5 | 10 | 20;
 
 export function useChainRace() {
-  const { account, privateKey, isReady } = useEmbeddedWallet();
+  const { account, privateKey, isReady, resetWallet } = useEmbeddedWallet();
   const [status, setStatus] = useState<ChainRaceStatus>("idle");
   const [balances, setBalances] = useState<ChainBalance[]>([]);
   const [results, setResults] = useState<RaceResult[]>([]);
@@ -106,9 +106,13 @@ export function useChainRace() {
   };
 
   // Create a wallet client - defined at hook level to avoid ESLint warnings
-  const createClient = (chain) => {
+  const createClient = (chain: Chain) => {
+    if (!account) {
+      throw new Error("Cannot create wallet client: account is null");
+    }
+    
     return createWalletClient({
-      account: account,
+      account,
       chain,
       transport: http(),
     });
@@ -127,7 +131,7 @@ export function useChainRace() {
       gasPrice: bigint;
       feeData?: bigint;
       blockData?: unknown;
-      signedTransactions?: string[]; // Store pre-signed transactions
+      signedTransactions?: (string | null)[]; // Store pre-signed transactions, which may be null
     }>();
     
     try {
@@ -179,7 +183,7 @@ export function useChainRace() {
                 gasPrice: feeData,
                 nonce: nonce + txIndex,
                 chainId: chain.id,
-                data: '0x',
+                data: '0x' as const, // Use const assertion for hex string
               };
               
               // Log transaction parameters in a way that handles EIP-1559 transactions
@@ -302,7 +306,7 @@ export function useChainRace() {
                                    
             // Use pre-signed transaction if available and not null
             const signedTransaction = hasPreSignedTx
-              ? currentChainData.signedTransactions[txIndex]
+              ? currentChainData.signedTransactions![txIndex]
               : null;
               
             if (currentChainData.signedTransactions && 
@@ -332,8 +336,14 @@ export function useChainRace() {
               const txToSend = signedTransaction;
               
               console.time('sending');
+              
+              // Check if we have a valid transaction
+              if (!txToSend || typeof txToSend !== 'string') {
+                throw new Error(`Invalid transaction format for RISE tx #${txIndex}`);
+              }
+              
               // Send the transaction and get receipt in one call
-              const receipt = await RISESyncClient.sendRawTransactionSync(txToSend);
+              const receipt = await RISESyncClient.sendRawTransactionSync(txToSend as `0x${string}`);
               
               // Verify receipt
               if (!receipt || !receipt.transactionHash) {
@@ -400,9 +410,9 @@ export function useChainRace() {
                 }
               } else {
                 // Normal path for non-Monad chains
-                // Send the raw transaction
-                txHash = await publicClient.sendRawTransaction({
-                  serialized: txToSend,
+                // Send the raw transaction - wagmi v2 changed the API
+                txHash = await publicClient!.sendRawTransaction({
+                  serializedTransaction: txToSend as `0x${string}`
                 });
               }
               
@@ -434,7 +444,7 @@ export function useChainRace() {
               const confirmStartTime = Date.now();
               
               // Wait for transaction to be confirmed
-              await publicClient.waitForTransactionReceipt({ 
+              await publicClient!.waitForTransactionReceipt({ 
                 hash: txHash,
                 timeout: 60_000, // 60 seconds timeout
               });
@@ -449,7 +459,7 @@ export function useChainRace() {
             }
               
             // Transaction confirmed, update completed count and track latencies for all chains
-            setResults(prev => {
+            setResults((prev) => {
               const updatedResults = prev.map(r => {
                 if (r.chainId === chain.id) {
                   // Add this transaction's latency to the array
@@ -473,10 +483,14 @@ export function useChainRace() {
                     console.log(`Individual latencies: ${newLatencies.join(', ')}ms`);
                   }
                   
+                  // Ensure status is one of the allowed values from RaceResult.status type
+                  const newStatus: "pending" | "racing" | "success" | "error" = 
+                    allTxCompleted ? "success" : "racing";
+                  
                   return { 
                     ...r, 
                     txCompleted,
-                    status: allTxCompleted ? "success" : "racing",
+                    status: newStatus,
                     txLatencies: newLatencies,
                     averageLatency,
                     totalLatency
@@ -532,7 +546,7 @@ export function useChainRace() {
                 r.chainId === chain.id 
                   ? { 
                       ...r, 
-                      status: "error", 
+                      status: "error" as const, 
                       error: errorMessage
                     } 
                   : r
@@ -549,7 +563,7 @@ export function useChainRace() {
             r.chainId === chain.id 
               ? { 
                   ...r, 
-                  status: "error", 
+                  status: "error" as const, 
                   error: error instanceof Error ? error.message : "Race initialization failed"
                 } 
               : r
@@ -588,7 +602,7 @@ export function useChainRace() {
         r.chainId === chainId 
           ? { 
               ...r, 
-              status: "success",
+              status: "success" as const, // Use const assertion to ensure correct type
               txCompleted: r.txTotal, // Mark all transactions as completed
               position: 999, // Put it at the end of the results
               error: "Skipped by user"
@@ -612,5 +626,6 @@ export function useChainRace() {
     privateKey,
     transactionCount,
     setTransactionCount,
+    resetWallet,
   };
 }

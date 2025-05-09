@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useModal } from "@/hooks/useModal";
 import { Connector, useAccount, useConnect, useSwitchChain } from "wagmi";
 import { Button, Card } from "./ui";

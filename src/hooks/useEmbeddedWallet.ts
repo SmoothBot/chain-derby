@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { privateKeyToAccount, type Account, generatePrivateKey, type Hex } from "viem/accounts";
+import { privateKeyToAccount, type Account, generatePrivateKey } from "viem/accounts";
+import type { Hex } from "viem";
 
 interface EmbeddedWalletState {
   privateKey: Hex | null;

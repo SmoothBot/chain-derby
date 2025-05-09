@@ -1,28 +1,7 @@
 import { Chain } from "viem";
 import { sepoliaTestnet as riseSepoliaConfig } from "./sepolia";
 
-export interface ChainConfig {
-  id: number;
-  name: string;
-  nativeCurrency: {
-    name: string;
-    symbol: string;
-    decimals: number;
-  };
-  rpcUrls: {
-    default: {
-      http: string[];
-    };
-    public?: {
-      http: string[];
-    };
-  };
-  blockExplorers: {
-    default: {
-      name: string;
-      url: string;
-    };
-  };
+export interface ChainConfig extends Chain {
   testnet: boolean;
   color: string; // For UI styling
   emoji: string; // For horse race UI
@@ -144,15 +123,15 @@ export interface ChainConfig {
 // } as const satisfies Chain;
 
 // RISE Testnet (using the sepolia config from ./sepolia.ts)
-export const riseTestnet: ChainConfig = {
+export const riseTestnet = {
   ...riseSepoliaConfig,
   testnet: true,
   color: "#00C2FF",
   emoji: "🚀",
-} as const satisfies Chain;
+} as const as ChainConfig;
 
 // Monad Testnet
-export const monadTestnet: ChainConfig = {
+export const monadTestnet = {
   id: 10143,
   name: "Monad Testnet",
   nativeCurrency: { name: "Monad", symbol: "MONAD", decimals: 18 },
@@ -173,7 +152,7 @@ export const monadTestnet: ChainConfig = {
   testnet: true,
   color: "#9400D3", // Purple color for Monad
   emoji: "🔮", // Crystal ball for Monad
-} as const satisfies Chain;
+} as const as ChainConfig;
 
 // Add the chains we want to include in the race
 export const raceChains = [
