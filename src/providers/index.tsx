@@ -16,7 +16,7 @@ export function AppProvider({ children }: Readonly<AppProviderProps>) {
   return (
     <WagmiProvider config={config} reconnectOnMount={true}>
       <QueryClientProvider>
-        <ThemeProvider attribute="class" enableSystem defaultTheme="dark">
+        <ThemeProvider attribute="class" enableSystem defaultTheme="light">
           <ChainRaceProvider>
             <PageProvider>
               <ModalProvider>

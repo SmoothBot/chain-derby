@@ -62,11 +62,11 @@ export function HorseRace() {
         {/* Race results table when finished */}
         {isRaceFinished && sortedResults.some(r => r.position) && (
           <div className="mt-8 border-t pt-6">
-            <h3 className="text-xl font-semibold mb-4">Leaderboard</h3>
+            <h3 className="text-xl font-semibold mb-4 text-black dark:text-white">Leaderboard</h3>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b">
+                  <tr className="border-b text-black dark:text-white">
                     <th className="text-left py-2 px-4">Position</th>
                     <th className="text-left py-2 px-4">Chain</th>
                     <th className="text-left py-2 px-4">Avg. Latency</th>
@@ -74,7 +74,7 @@ export function HorseRace() {
                     <th className="text-left py-2 px-4">Status</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="text-black dark:text-white">
                   {sortedResults.map((result) => (
                     <tr key={result.chainId} className="border-b">
                       <td className="py-3 px-4">
@@ -84,7 +84,9 @@ export function HorseRace() {
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{result.emoji}</span>
-                          <span style={{ color: result.color }}>{result.name}</span>
+                          <span className="text-black dark:text-white">
+                            {result.name}
+                          </span>
                         </div>
                       </td>
                       <td className="py-3 px-4">{result.averageLatency ? `${result.averageLatency}ms` : '-'}</td>
@@ -154,8 +156,7 @@ function HorseRaceTrack({ result }: { result: RaceResult }) {
       {/* Track */}
       <div className="h-12 ml-12 mr-6 rounded-md bg-accent/15 relative">
         {/* Chain name (displayed on the track) */}
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 font-medium z-10" 
-             style={{ color: result.color }}>
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 font-medium z-10 text-black dark:text-white">
           {result.name}
         </div>
         

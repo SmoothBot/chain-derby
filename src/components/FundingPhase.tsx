@@ -65,8 +65,12 @@ export function FundingPhase() {
             return (
               <div 
                 key={chain.id} 
-                className={`flex items-center justify-between py-2 px-4 rounded-md cursor-pointer ${isSelected ? "ring-2 ring-primary" : ""}`}
-                style={{ backgroundColor: `${chain.color}15` }}
+                className="flex items-center justify-between py-2 px-4 rounded-md cursor-pointer relative"
+                style={{ 
+                  backgroundColor: isSelected ? `${chain.color}30` : `${chain.color}15`,
+                  outline: isSelected ? "2px solid #b197fc" : "none", // Light purple outline
+                  boxShadow: isSelected ? "0 0 8px rgba(177, 151, 252, 0.5)" : "none" // Purple glow
+                }}
                 onClick={() => {
                   // Toggle chain selection
                   if (isSelected) {
@@ -80,10 +84,15 @@ export function FundingPhase() {
                 }}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{chain.emoji}</span>
+                  <div className="relative">
+                    <span className="text-2xl">{chain.emoji}</span>
+                    {isSelected && (
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#b197fc] rounded-full border border-background animate-pulse"></div>
+                    )}
+                  </div>
                   <div>
-                    <h3 className="font-medium">{chain.name}</h3>
-                    <p className="text-sm text-muted-foreground">
+                    <h3 className="font-medium text-black dark:text-white">{chain.name}</h3>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
                       {chainBalance ? `${formatEther(balance)} ${chain.nativeCurrency.symbol}` : "Checking..."}
                     </p>
                   </div>
