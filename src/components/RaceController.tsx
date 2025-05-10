@@ -173,7 +173,7 @@ export function RaceController() {
       <CardContent>
         <div className="text-center py-4">
           {status === "idle" && (
-            <p className="text-xl">Welcome to the EVM Chain Race!</p>
+            <p className="text-xl">Welcome to Chain Derby!</p>
           )}
           
           {status === "funding" && (

@@ -29,9 +29,9 @@ const fkGrotesk = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "RISE Testnet",
+  title: "Chain Derby",
   description:
-    "RISE Testnet Explorer - Explore tokens, applications, and more on the RISE Testnet",
+    "Chain Derby - Compare transaction speeds across different EVM-compatible blockchains",
   icons: {
     icon: [
       { url: "/favicon_light.svg", media: "(prefers-color-scheme: light)" },

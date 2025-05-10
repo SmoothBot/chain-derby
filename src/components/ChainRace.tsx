@@ -5,7 +5,7 @@ import { type RaceResult } from "@/hooks/useChainRace";
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { Loader2, Clock, XCircle, Trophy, CheckCircle } from "lucide-react";
 
-export function HorseRace() {
+export function ChainRace() {
   const { results } = useChainRaceContext();
   
   // Sort results by position for the display
@@ -34,7 +34,7 @@ export function HorseRace() {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Horse Race</CardTitle>
+        <CardTitle>Chain Derby</CardTitle>
         {isRaceFinished && (
           <div className="text-sm font-medium text-muted-foreground">
             Race Results
@@ -54,7 +54,7 @@ export function HorseRace() {
           {/* Race track */}
           <div className="space-y-8 py-4">
             {sortedResults.map((result) => (
-              <HorseRaceTrack key={result.chainId} result={result} />
+              <ChainRaceTrack key={result.chainId} result={result} />
             ))}
           </div>
         </div>
@@ -116,7 +116,7 @@ export function HorseRace() {
   );
 }
 
-function HorseRaceTrack({ result }: { result: RaceResult }) {
+function ChainRaceTrack({ result }: { result: RaceResult }) {
   // Calculate horse position as percentage with discrete steps
   let position = 0;
   

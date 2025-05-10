@@ -3,7 +3,7 @@
 import { Card } from "@/components/ui";
 import { EmbeddedWallet } from "@/components/EmbeddedWallet";
 import { FundingPhase } from "@/components/FundingPhase";
-import { HorseRace } from "@/components/HorseRace";
+import { ChainRace } from "@/components/ChainRace";
 import { RaceController } from "@/components/RaceController";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
@@ -49,7 +49,7 @@ export default function Home() {
           <div className="grid gap-8">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
               <div className="text-center sm:text-left py-2">
-                <h1 className="text-3xl sm:text-4xl mb-2">EVM Chain Race</h1>
+                <h1 className="text-3xl sm:text-4xl mb-2">Chain Derby</h1>
                 <p className="text-muted-foreground text-sm sm:text-base">
                   Compare transaction speeds across different EVM-compatible blockchains
                 </p>
@@ -72,9 +72,9 @@ export default function Home() {
               <FundingPhase />
             )}
             
-            {/* Horse Race Visualization (shown when racing or finished) */}
+            {/* Chain Derby Visualization (shown when racing or finished) */}
             {(stableStatus === "racing" || stableStatus === "finished") && (
-              <HorseRace />
+              <ChainRace />
             )}
             
             {/* Instructions */}

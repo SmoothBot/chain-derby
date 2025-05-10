@@ -27,7 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Application Architecture
 
 ### Overview
-This is an EVM Chain Race application that compares transaction speeds across different EVM-compatible blockchains. It allows users to:
+This is a Chain Derby application that compares transaction speeds across different EVM-compatible blockchains. It allows users to:
 1. Generate an embedded wallet
 2. Fund the wallet on multiple blockchains
 3. Run a race by executing transactions across all chains simultaneously

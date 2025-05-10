@@ -1,6 +1,6 @@
-# EVM Chain Race
+# Chain Derby
 
-This repository contains a Next.js application designed to compare the performance of the **RISE testnet** against other EVM-compatible blockchains. The application provides a visual "horse race" to directly compare transaction speeds and latencies across different chains.
+This repository contains a Next.js application designed to compare the performance of the **RISE testnet** against other EVM-compatible blockchains. The application provides a visual race track to directly compare transaction speeds and latencies across different chains.
 
 ## Purpose
 
