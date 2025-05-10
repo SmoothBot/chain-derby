@@ -19,18 +19,16 @@ The primary goal of this application is to:
 - Embedded wallet for easy testing across multiple chains
 - Simple funding process with faucet links
 - Pre-signed transaction optimization for accurate timing
+- Dark mode support
 
 ## Supported Chains
 
 The application currently supports racing against these EVM-compatible chains:
 - RISE Testnet
-- Sepolia
-- Holesky
-- Base Sepolia
-- Polygon Mumbai
-- Optimism Sepolia
-- Arbitrum Sepolia
 - Monad Testnet
+- MegaETH Testnet
+- Base Mainnet
+- Sonic Mainnet
 
 ## Getting Started
 
@@ -52,13 +50,16 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 1. An embedded wallet is automatically generated and stored in your browser
 2. Fund your wallet using the provided faucet links for each chain
-3. Select the number of transactions to run (1, 5, 10, or 20)
+3. Select the number of transactions to run (default is 10, but you can choose 1, 5, or 20)
 4. Start the race and watch the real-time results
 5. Compare the performance metrics to see which chain is fastest
 
 ## Built With
 
-- [Next.js](https://nextjs.org) - React framework
+- [Next.js 14](https://nextjs.org) - React framework with App Router
+- [React 19](https://react.dev) - UI library
+- [TypeScript](https://www.typescriptlang.org) - Type safety
 - [Viem](https://viem.sh) - Ethereum library for transaction handling
-- [Radix UI](https://www.radix-ui.com) - UI component library
-- [Tailwind CSS](https://tailwindcss.com) - Styling
+- [Radix UI](https://www.radix-ui.com) - Accessible UI primitives
+- [Tailwind CSS](https://tailwindcss.com) - Utility-first styling
+- [Next Themes](https://github.com/pacocoursey/next-themes) - Dark mode support

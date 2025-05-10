@@ -54,7 +54,7 @@ export function useChainRace() {
         }
       }
     }
-    return 1;
+    return 10;
   });
   
   const [selectedChains, setSelectedChains] = useState<number[]>(() => {
