@@ -2,8 +2,8 @@
 
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { type RaceResult } from "@/hooks/useChainRace";
-import { Badge, Card, CardContent } from "@/components/ui";
-import { Loader2, XCircle, Trophy, CheckCircle, Clock } from "lucide-react";
+import { Card, CardContent } from "@/components/ui";
+import { Loader2, XCircle, Trophy, Clock } from "lucide-react";
 import Image from "next/image";
 
 export function ChainRace() {
@@ -12,9 +12,7 @@ export function ChainRace() {
   // Sort by chainId to maintain consistent lane order, regardless of race position
   const sortedResults = [...results];
   
-  // Check if the race is finished
-  const { status } = useChainRaceContext();
-  const isRaceFinished = status === "finished";
+  // We previously checked if the race is finished here, but removed as unused
   
   return (
     <Card className="w-full overflow-hidden relative">
@@ -81,7 +79,7 @@ export function ChainRace() {
   );
 }
 
-function ChainRaceTrack({ result, index }: { result: RaceResult, index: number }) {
+function ChainRaceTrack({ result }: { result: RaceResult, index: number }) {
   // Calculate horse position as percentage with discrete steps
   let position = 0;
   
