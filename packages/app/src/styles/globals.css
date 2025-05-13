@@ -101,7 +101,14 @@
   --animate-out: pop-out 200ms ease-out;
   --animate-fade-in: fade-in 400ms ease-out;
   --animate-fade-out: fade-out 400ms ease-out;
+  --animate-horse-run: horse-run 500ms infinite ease-in-out;
+  --animate-horse-bob: horse-bob 2s infinite ease-in-out;
+  --animate-finish-celebration: finish-celebration 1s ease-out;
 }
+
+/* No celebration animations */
+
+/* No longer using order-based positioning, each track stays in its lane */
 
 @layer base {
   :root {

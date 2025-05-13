@@ -20,6 +20,7 @@ export interface RaceResult {
   name: string;
   color: string;
   emoji: string;
+  logo?: string;             // Path to the chain logo
   status: "pending" | "racing" | "success" | "error";
   txHash?: Hex;
   error?: string;
@@ -443,6 +444,7 @@ export function useChainRace() {
       name: chain.name,
       color: chain.color,
       emoji: chain.emoji,
+      logo: chain.logo, // Add logo path from the chain config
       status: "pending" as const,
       txCompleted: 0,
       txTotal: transactionCount,

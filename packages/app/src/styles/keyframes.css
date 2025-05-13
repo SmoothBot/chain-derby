@@ -109,3 +109,48 @@
     transform: translateY(50px);
   }
 }
+
+@keyframes horse-run {
+  0% {
+    transform: translateY(0px);
+  }
+  25% {
+    transform: translateY(-3px) rotate(2deg);
+  }
+  50% {
+    transform: translateY(0px);
+  }
+  75% {
+    transform: translateY(-3px) rotate(-2deg);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes horse-bob {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-50px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Position change animation removed as tracks now stay in their original lanes */
+
+/* Finish celebration animation removed */

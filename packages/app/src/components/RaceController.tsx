@@ -30,7 +30,8 @@ export function RaceController() {
     transactionCount, 
     setTransactionCount,
     selectedChains,
-    setSelectedChains
+    setSelectedChains,
+    isLoadingBalances
   } = useChainRaceContext();
   
   const handleAction = () => {
@@ -173,11 +174,19 @@ export function RaceController() {
       <CardContent>
         <div className="text-center py-4">
           {status === "idle" && (
-            <p className="text-xl">Welcome to Chain Derby!</p>
+            <p className="text-xl">
+              {isLoadingBalances 
+                ? <span className="flex items-center justify-center"><RefreshCw size={18} className="animate-spin mr-2" /> Checking Balances...</span> 
+                : "Welcome to Chain Derby!"}
+            </p>
           )}
           
           {status === "funding" && (
-            <p className="text-xl">Fund your wallet to start the race</p>
+            <p className="text-xl">
+              {isLoadingBalances
+                ? <span className="flex items-center justify-center"><RefreshCw size={18} className="animate-spin mr-2" /> Checking Balances...</span>
+                : "Fund your wallet to start the race"}
+            </p>
           )}
           
           {status === "ready" && (
@@ -209,20 +218,20 @@ export function RaceController() {
         <Button
           size="lg"
           className="w-full sm:w-auto px-8"
-          disabled={status === "racing" || (!isReady && status !== "funding")}
+          disabled={status === "racing" || (!isReady && status !== "funding") || isLoadingBalances}
           onClick={handleAction}
         >
           {status === "idle" && (
             <>
-              <RefreshCw size={16} className="mr-2" />
-              Check Balances
+              <RefreshCw size={16} className={`mr-2 ${isLoadingBalances ? "animate-spin" : ""}`} />
+              {isLoadingBalances ? "Checking Balances..." : "Check Balances"}
             </>
           )}
           
           {status === "funding" && (
             <>
-              <RefreshCw size={16} className="mr-2" />
-              Check Again
+              <RefreshCw size={16} className={`mr-2 ${isLoadingBalances ? "animate-spin" : ""}`} />
+              {isLoadingBalances ? "Checking Balances..." : "Check Again"}
             </>
           )}
           
