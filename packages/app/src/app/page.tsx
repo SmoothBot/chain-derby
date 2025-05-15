@@ -6,6 +6,7 @@ import { FundingPhase } from "@/components/FundingPhase";
 import { ChainRace } from "@/components/ChainRace";
 import { RaceController } from "@/components/RaceController";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
+import { LeaderboardPanel } from "@/components/LeaderboardPanel";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { useState, useEffect } from "react";
 import { ChainRaceStatus } from "@/hooks/useChainRace";
@@ -74,7 +75,10 @@ export default function Home() {
             
             {/* Chain Derby Visualization (shown when racing or finished) */}
             {(stableStatus === "racing" || stableStatus === "finished") && (
-              <ChainRace />
+              <>
+                <ChainRace />
+                <LeaderboardPanel />
+              </>
             )}
             
             {/* Instructions */}
