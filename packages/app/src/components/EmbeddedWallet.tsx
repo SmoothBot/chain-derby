@@ -1,13 +1,14 @@
 "use client";
 
-import { Button, Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui";
+import { Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
-import { CopyIcon, RefreshCw } from "lucide-react";
+import { CopyIcon, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
 export function EmbeddedWallet() {
   const { account, privateKey, resetWallet } = useChainRaceContext();
   const [copied, setCopied] = useState<"address" | "key" | null>(null);
+  const [showKey, setShowKey] = useState(false);
   
   const copyToClipboard = (text: string, type: "address" | "key") => {
     navigator.clipboard.writeText(text);
@@ -28,9 +29,10 @@ export function EmbeddedWallet() {
   }
   
   return (
-    <Card className="w-full">
-      <CardHeader>
+    <Card className="w-full pt-8">
+      <CardHeader className="space-y-5">
         <CardTitle>Your Embedded Wallet</CardTitle>
+        <CardDescription>Send native tokens to your wallet address.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -53,8 +55,15 @@ export function EmbeddedWallet() {
           <label className="text-sm font-medium text-muted-foreground">Private Key (Do not share!)</label>
           <div className="flex items-center gap-2">
             <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
-              {privateKey.substring(0, 10)}...{privateKey.substring(privateKey.length - 10)}
+              {showKey ? `${privateKey.substring(0, 18)}...${privateKey.substring(privateKey.length - 18)}` : "••••••••••••••••••••"}
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowKey(!showKey)}
+            >
+              {showKey ? <EyeOff size={18} /> : <Eye size={18} />}
+            </Button>
             <Button 
               variant="ghost" 
               size="icon"
@@ -65,18 +74,6 @@ export function EmbeddedWallet() {
           </div>
         </div>
       </CardContent>
-      <CardFooter>
-        <div className="w-full flex justify-end">
-          <Button 
-            variant="outline" 
-            onClick={resetWallet}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw size={16} />
-            Reset Wallet
-          </Button>
-        </div>
-      </CardFooter>
     </Card>
   );
 }

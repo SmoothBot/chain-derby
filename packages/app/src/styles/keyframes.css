@@ -232,3 +232,28 @@
     transform: translateY(0) translateX(-50%);
   }
 }
+
+@keyframes sprite {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(calc(180px * -6)); }
+}
+
+@keyframes drop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(0%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(57%);
+  }
+}
+
+@layer utilities {
+  .animate-sprite {
+    animation: sprite 700ms steps(6) infinite;
+  }
+  .animate-drop-in {
+    animation: drop-in 300ms 0.45s both;
+  }
+}
