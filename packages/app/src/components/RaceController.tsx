@@ -237,7 +237,7 @@ export function RaceController() {
           
           {status === "ready" && (
             <>
-              <Play size={16} className="mr-2" />
+              <Play size={16} className="mr-2 white" />
               Start Race
             </>
           )}

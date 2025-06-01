@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Separator } from "@/components/ui";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Separator } from "@/components/ui";
 import { raceChains } from "@/chain/networks";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { RefreshCw, CheckCircle, XCircle, Loader2 } from "lucide-react";
@@ -22,9 +22,9 @@ export function FundingPhase() {
   }
   
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Chain Balances</CardTitle>
+    <Card className="w-full pt-6 gap-3">
+      <CardHeader className="flex flex-row items-center justify-between pb-0 mb-0">
+        <CardTitle color="mb-0">Race Control</CardTitle>
         <Button 
           variant="outline" 
           onClick={checkBalances} 
@@ -44,18 +44,12 @@ export function FundingPhase() {
           )}
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="text-sm text-muted-foreground">
-          <p>To start the race, you need to fund your wallet on each chain with a small amount of tokens.</p>
-          <p className="mt-2">Send native tokens to your wallet address:</p>
-          <div className="p-2 bg-accent/25 rounded-md text-sm font-mono mt-2 overflow-hidden text-ellipsis">
-            {account.address}
-          </div>
-        </div>
+      <CardContent className="space-y-4 pb-4">
+        <CardDescription>
+          To start the race, fund your wallet on each chain with a small amount of tokens.
+        </CardDescription>
         
-        <Separator />
-        
-        <div className="space-y-3">
+        <div className="space-y-2">
           {raceChains.map((chain) => {
             const chainBalance = balances.find(b => b.chainId === chain.id);
             const hasBalance = chainBalance?.hasBalance || false;
@@ -73,7 +67,7 @@ export function FundingPhase() {
                 }}
                 onClick={() => {
                   // Toggle chain selection
-                  if (isSelected) {
+                if (isSelected) {
                     // Don't allow deselecting if it's the last chain
                     if (selectedChains.length > 1) {
                       setSelectedChains(prev => prev.filter(id => id !== chain.id));

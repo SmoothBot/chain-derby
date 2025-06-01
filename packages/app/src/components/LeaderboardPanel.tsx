@@ -87,8 +87,8 @@ export function LeaderboardPanel() {
   };
 
   return (
-    <Card className="w-full mt-8 animate-in fade-in duration-500 shadow-lg" ref={leaderboardRef}>
-      <CardHeader className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 pb-6">
+    <Card className="w-full pt-7 pb-6 animate-in fade-in duration-500" ref={leaderboardRef}>
+      <CardHeader>
         <div className="flex justify-between items-center">
           <div>
             <CardTitle className="text-2xl flex items-center gap-2">
@@ -124,7 +124,7 @@ export function LeaderboardPanel() {
         </div>
       </CardHeader>
       
-      <CardContent className="pt-6">
+      <CardContent>
         {/* Race winner highlight */}
         {sortedResults.length > 0 && (
           <div className="mb-8 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800/40">

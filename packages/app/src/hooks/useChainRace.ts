@@ -32,7 +32,7 @@ export interface RaceResult {
   totalLatency?: number;     // Total latency of all transactions combined
 }
 
-export type TransactionCount = 1 | 5 | 10 | 20;
+export type TransactionCount = 10;
 
 // Constants for localStorage keys
 const LOCAL_STORAGE_SELECTED_CHAINS = "horse-race-selected-chains";
@@ -46,15 +46,15 @@ export function useChainRace() {
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [transactionCount, setTransactionCount] = useState<TransactionCount>(() => {
     // Load saved transaction count from localStorage if available
-    if (typeof window !== 'undefined') {
-      const savedCount = localStorage.getItem(LOCAL_STORAGE_TX_COUNT);
-      if (savedCount) {
-        const count = parseInt(savedCount, 10) as TransactionCount;
-        if ([1, 5, 10, 20].includes(count)) {
-          return count;
-        }
-      }
-    }
+    // if (typeof window !== 'undefined') {
+    //   const savedCount = localStorage.getItem(LOCAL_STORAGE_TX_COUNT);
+    //   if (savedCount) {
+    //     const count = parseInt(savedCount, 10) as TransactionCount;
+    //     if ([1, 5, 10, 20].includes(count)) {
+    //       return count;
+    //     }
+    //   }
+    // }
     return 10;
   });
   

@@ -2,28 +2,56 @@
 
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { type RaceResult } from "@/hooks/useChainRace";
-import { Card, CardContent } from "@/components/ui";
-import { Loader2, XCircle, Trophy, Clock } from "lucide-react";
+import { Button, CardContent } from "@/components/ui";
+import { Loader2, XCircle, Trophy, Clock, RefreshCw, Play } from "lucide-react";
 import Image from "next/image";
 
 export function ChainRace() {
-  const { results } = useChainRaceContext();
+  const { 
+    results,
+    status, 
+    startRace, 
+    restartRace,
+    isReady, 
+    checkBalances, 
+    isLoadingBalances
+  } = useChainRaceContext();
   
   // Sort by chainId to maintain consistent lane order, regardless of race position
   const sortedResults = [...results];
   
   // We previously checked if the race is finished here, but removed as unused
+
+  const handleAction = () => {
+    console.log("Handle action clicked. Current status:", status);
+    
+    if (status === "idle") {
+      console.log("Checking balances...");
+      checkBalances();
+    } else if (status === "ready") {
+      console.log("Starting race...");
+      startRace();
+    } else if (status === "funding") {
+      console.log("Checking balances again...");
+      checkBalances();
+    } else if (status === "finished") {
+      console.log("Resetting race...");
+      // Reset to the ready state so the FundingPhase will be shown again
+      restartRace(); 
+      // The UI will now show FundingPhase again until the user starts a new race
+    }
+  };
   
   return (
-    <Card className="w-full overflow-hidden relative">
+    <div className="flex flex-col">
       {/* Top banner with sky and clouds */}
-      <div className="w-full bg-blue-100" style={{ marginBottom: "-4px", fontSize: 0, lineHeight: 0 }}>
-        <div className="relative w-full" style={{ fontSize: 0, lineHeight: 0 }}>
+      <div style={{ fontSize: 0, lineHeight: 0 }}>
+        <div className="relative w-full">
           <Image
             src="/top.png"
             alt="Chain Derby Banner"
             width={1000}
-            height={200}
+            height={400}
             className="w-full block"
             style={{ 
               objectFit: "cover", 
@@ -31,12 +59,51 @@ export function ChainRace() {
               marginBottom: 0
             }}
           />
+          <div className="absolute w-full text-center top-[57%]">
+          <Button
+          size="lg"
+          disabled={status === "racing" || (!isReady && status !== "funding") || isLoadingBalances}
+          onClick={handleAction}
+        >
+          {status === "idle" && (
+            <>
+              <RefreshCw size={16} className={`mr-2 ${isLoadingBalances ? "animate-spin" : ""}`} color="white" />
+              {isLoadingBalances ? "Checking Balances..." : "Check Balances"}
+            </>
+          )}
+          
+          {status === "funding" && (
+            <>
+              <RefreshCw size={16} className={`mr-2 ${isLoadingBalances ? "animate-spin" : ""}`} color="white" />
+              {isLoadingBalances ? "Checking Balances..." : "Check Again"}
+            </>
+          )}
+          
+          {status === "ready" && (
+            <>
+              <Play size={16} className="mr-2" color="white" />
+              Start Race
+            </>
+          )}
+          
+          {status === "racing" && (
+            <>Racing...</>
+          )}
+          
+          {status === "finished" && (
+            <>
+              <RefreshCw size={16} className="mr-2" color="white" />
+              Reset Race
+            </>
+          )}
+        </Button>
+        </div>
         </div>
       </div>
       
-      <CardContent className="p-0 relative" style={{ marginTop: "-4px", fontSize: 0, lineHeight: 0 }}>
+      <CardContent className="w-full p-0 relative" style={{ fontSize: 0, lineHeight: 0 }}>
         {/* Race tracks container with absolute positioning for precise control */}
-        <div className="mt-[-30px] relative" style={{ 
+        <div style={{ 
           fontSize: "16px", 
           lineHeight: "normal",
           height: `${Math.min(results.length * 120, 720)}px` // Height based on number of tracks
@@ -44,14 +111,7 @@ export function ChainRace() {
           {sortedResults.map((result, index) => (
             <div 
               key={result.chainId} 
-              className="transition-all duration-1000 ease-in-out" 
-              style={{ 
-                position: "absolute",
-                top: `${index * 120}px`,
-                left: 0,
-                right: 0,
-                height: "120px"
-              }}
+              className="relative transition-all duration-1000 ease-in-out" 
               data-position={result.position}
             >
               <ChainRaceTrack result={result} index={index} />
@@ -60,26 +120,28 @@ export function ChainRace() {
         </div>
         
         {/* Bottom grass image */}
-        <div className="w-full mt-[-0px]">
-          <div className="relative w-full">
-            <Image
-              src="/bottom.png"
-              alt="Grass"
-              width={1000}
-              height={120}
-              className="w-full"
-              style={{ objectFit: "cover" }}
-            />
+        {sortedResults.length &&
+          <div className="w-full">
+            <div className="relative w-full">
+              <Image
+                src="/bottom.png"
+                alt="Grass"
+                width={1000}
+                height={120}
+                className="w-full"
+                style={{ objectFit: "cover" }}
+              />
+            </div>
           </div>
-        </div>
+        }
         
         {/* Race results have been removed as requested */}
       </CardContent>
-    </Card>
+    </div>
   );
 }
 
-function ChainRaceTrack({ result }: { result: RaceResult, index: number }) {
+function ChainRaceTrack({ result, index }: { result: RaceResult, index: number }) {
   // Calculate horse position as percentage with discrete steps
   let position = 0;
   
@@ -112,38 +174,15 @@ function ChainRaceTrack({ result }: { result: RaceResult, index: number }) {
   
   return (
     <div className="relative h-30 my-0">
-      {/* Highlight overlay for successful finish */}
-      {shouldHighlight && (
-        <div className="absolute inset-0 w-full h-full z-10 animate-pulse" 
-          style={{ 
-            backgroundColor: `${result.position === 1 ? "rgba(255, 215, 0, 0.15)" : 
-                              result.position === 2 ? "rgba(192, 192, 192, 0.15)" : 
-                              "rgba(205, 127, 50, 0.15)"}`,
-            borderRadius: "4px",
-            pointerEvents: "none"
-          }}>
-        </div>
-      )}
-      
       {/* Trophy positioned to the right side of the track for top 3 finishers */}
-      {result.status === "success" && result.position && result.position <= 3 && (
-        <div className="absolute right-[20%] top-1/2 -translate-y-1/2 z-20 rounded-full p-2 flex items-center justify-center" 
-          style={{
-            background: result.position === 1 
-              ? 'radial-gradient(circle, rgba(255,215,0,0.8) 0%, rgba(255,215,0,0.4) 70%, rgba(255,215,0,0) 100%)' 
-              : result.position === 2
-                ? 'radial-gradient(circle, rgba(192,192,192,0.8) 0%, rgba(192,192,192,0.4) 70%, rgba(192,192,192,0) 100%)'
-                : 'radial-gradient(circle, rgba(205,127,50,0.8) 0%, rgba(205,127,50,0.4) 70%, rgba(205,127,50,0) 100%)',
-            width: '100px',
-            height: '100px',
-            boxShadow: '0 0 15px rgba(0,0,0,0.2)'
-          }}>
-          <Trophy className="h-14 w-14" style={{ 
-            color: result.position === 1 ? "#FFD700" : // Gold
-                   result.position === 2 ? "#C0C0C0" : // Silver
-                   "#CD7F32",                          // Bronze
-            filter: 'drop-shadow(0px 0px 5px rgba(0,0,0,0.3))'
-          }} />
+      {shouldHighlight && (
+        <div className="absolute right-42 bottom-1/2 z-2 rounded-full p-2 flex items-center justify-center animate-drop-in">
+          <Image 
+                src={`/trophy_${result.position}.png`} 
+                alt={`${result.position} Trophy`} 
+                width={83} 
+                height={100}
+              />         
         </div>
       )}
       
@@ -153,7 +192,7 @@ function ChainRaceTrack({ result }: { result: RaceResult, index: number }) {
           {[...Array(10)].map((_, i) => (
             <div 
               key={i}
-              className="absolute z-20 w-2 h-2 rounded-full pointer-events-none"
+              className="z-20 w-2 h-2 rounded-full pointer-events-none"
               style={{
                 left: `${20 + (i * 10)}%`,
                 top: "0",
@@ -169,10 +208,9 @@ function ChainRaceTrack({ result }: { result: RaceResult, index: number }) {
       {/* Track background image */}
       <div className="absolute inset-0 w-full h-full">
         <Image
-          src="/track.png"
+          src={index == 0 ? "/track_top.png": "/track.png"}
           alt="Race Track"
           fill
-          style={{ objectFit: "cover" }}
         />
       </div>
       
@@ -240,46 +278,41 @@ function ChainRaceTrack({ result }: { result: RaceResult, index: number }) {
       
       {/* Horse on the track */}
       <div 
-        className="absolute top-1/2"
+        className="absolute top-1/2 w-full ml-[-190]"
         style={{ 
-          right: `${100 - position}%`, 
-          transform: `translateY(-80%)`, /* Move horses down by adjusting translateY from -50% to -30% */
+          left: 0, 
+          transform: `translate(${position}%, -70%)`, /* Move horses down by adjusting translateY from -50% to -30% */
           zIndex: result.status === "error" ? 1 : 5,
-          width: "220px",
-          height: "170px",
-          transition: "right 0.3s ease-out"
+          width: "180",
+          height: "172px",
+          transition: "transform 0.6s",
         }}
       >
         {result.status !== "pending" && (
           <div className="relative" style={{ animation }}>
             <div className="relative">
-              <Image 
-                src="/horse.png" 
-                alt={`${result.name} Horse`} 
-                width={220} 
-                height={170}
-                className={result.status === "error" ? "opacity-50" : ""}
-                style={{ 
-                  transform: "scaleX(1)", // Face horse right-to-left
-                  width: "220px", 
-                  height: "170px",
-                  objectFit: "contain" 
-                }}
-              />
+              <div className="w-[180] h-[172] relative overflow-hidden">
+                <Image 
+                  src="/horse_sprite.png" 
+                  alt={`${result.name} Horse`} 
+                  width={1080} 
+                  height={172}
+                  className="max-w-none animate-sprite"
+                  // style={{
+                  //   animationPlayState: result.status === "success" ? 'paused' : 'running'
+                  // }}
+                />
+              </div>
               
               {/* Chain logo on the white square of the horse */}
-              <div className="absolute" style={{ left: "78px", top: "73px" }}>
+              <div className="absolute" style={{ left: "67px", top: "100px" }}>
                 <Image 
                   src={result.logo || "/logos/rise.png"}
                   alt={`${result.name} Logo`}
-                  width={32}
-                  height={32}
+                  width={20}
+                  height={20}
                   style={{ 
                     borderRadius: "50%",
-                    boxShadow: "0 0 5px rgba(0,0,0,0.2)",
-                    padding: "2px",
-                    width: "32px",
-                    height: "32px"
                   }}
                 />
               </div>

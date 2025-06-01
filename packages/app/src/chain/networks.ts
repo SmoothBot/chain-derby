@@ -1,5 +1,5 @@
 import { Chain } from "viem";
-import { sonic, base, megaethTestnet, unichain } from "viem/chains";
+import { sonic, base, megaethTestnet } from "viem/chains";
 import { sepoliaTestnet as riseSepoliaConfig } from "./sepolia";
 
 export interface ChainConfig extends Chain {
@@ -69,23 +69,13 @@ export const sonicMainnet = {
   logo: "/logos/sonic.png",
 } as const as ChainConfig;
 
-// Unichain
-export const unichainMainnet = {
-  ...unichain,
-  testnet: false,
-  color: "#FF007A", // Uniswap pink color for unichain
-  emoji: "🐎", // Unichain theme
-  logo: "/logos/unichain.png",
-} as const as ChainConfig;
-
 // Add the chains we want to include in the race
 export const raceChains = [
   riseTestnet,
-  megaEthTestnet,
   monadTestnet,
+  megaEthTestnet,
   sonicMainnet,
   baseMainnet,
-  unichainMainnet,
 ];
 
 
