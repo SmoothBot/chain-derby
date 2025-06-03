@@ -22,6 +22,7 @@ export function LeaderboardPanel() {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [capturedImageUrl, setCapturedImageUrl] = useState<string | null>(null);
   const leaderboardRef = useRef<HTMLDivElement>(null);
+  const shareableContentRef = useRef<HTMLDivElement>(null);
   
   // Only display the leaderboard when the race is finished
   if (status !== "finished") {
@@ -56,13 +57,13 @@ export function LeaderboardPanel() {
   
   // Handle opening the preview modal
   const handleOpenSharePreview = async () => {
-    if (!leaderboardRef.current) return;
+    if (!shareableContentRef.current) return;
     
     try {
       setIsCapturing(true);
       
-      // Capture the leaderboard element as an image
-      const imageDataUrl = await captureElementAsImage(leaderboardRef.current);
+      // Capture only the shareable content (excluding Transaction Details)
+      const imageDataUrl = await captureElementAsImage(shareableContentRef.current);
       
       // Store the captured image URL for the preview modal
       setCapturedImageUrl(imageDataUrl);
@@ -88,7 +89,14 @@ export function LeaderboardPanel() {
 
   return (
     <Card className="w-full pt-7 pb-6 animate-in fade-in duration-500" ref={leaderboardRef}>
-      <CardHeader>
+      {/* Shareable content - everything except Transaction Details */}
+      <div ref={shareableContentRef} className="p-6 bg-card rounded-lg"
+           style={{ 
+             minHeight: '400px',
+             background: 'var(--card)',
+             border: '1px solid var(--border)'
+           }}>
+        <CardHeader>
         <div className="flex justify-between items-center">
           <div>
             <CardTitle className="text-2xl flex items-center gap-2">
@@ -276,8 +284,12 @@ export function LeaderboardPanel() {
             </tbody>
           </table>
         </div>
+      </CardContent>
+      </div>
+      {/* End of shareable content */}
         
-        {/* Individual transaction details - collapsible in the future */}
+      {/* Individual transaction details - collapsible in the future */}
+      <CardContent>
         {sortedResults.some(r => r.txLatencies.length > 1) && (
           <div className="mt-8">
             <h3 className="text-base font-medium mb-3">Transaction Details</h3>
