@@ -60,77 +60,53 @@ export const shareToTwitter = async (
 
 /**
  * Capture a DOM element as an image
- * @param elementId The ID of the DOM element to capture
+ * @param sourceEl The DOM element to capture
  * @returns Promise that resolves to a data URL of the image
  */
-export const captureElementAsImage = async (elementRef: HTMLElement): Promise<string | null> => {
+export const captureElementAsImage = async (sourceEl: HTMLElement): Promise<string | null> => {
   try {
-    // Dynamically import html2canvas to avoid SSR issues
-    const html2canvas = (await import('html2canvas')).default;
+    // Dynamically import html-to-image to avoid SSR issues
+    const { toPng } = await import('html-to-image');
+    const { normaliseOklch } = await import('./oklch-to-rgb');
     
-    if (!elementRef) {
+    if (!sourceEl) {
       console.error('Element not found');
       return null;
     }
 
-    // Create a clone of the element to modify without affecting the UI
-    const clonedElement = elementRef.cloneNode(true) as HTMLElement;
-    const tempContainer = document.createElement('div');
-    tempContainer.style.position = 'absolute';
-    tempContainer.style.left = '-9999px';
-    tempContainer.style.top = '-9999px';
+    console.log('Starting image capture for element:', sourceEl);
+
+    // Detect if we're in dark mode
+    const isDarkMode = document.documentElement.classList.contains('dark') || 
+                      document.documentElement.getAttribute('data-theme') === 'dark' ||
+                      window.matchMedia('(prefers-color-scheme: dark)').matches;
     
-    // Add to document to ensure it's rendered properly for capturing
-    document.body.appendChild(tempContainer);
-    tempContainer.appendChild(clonedElement);
-    
-    // Set a fixed width equal to the original element to maintain layout
-    clonedElement.style.width = `${elementRef.offsetWidth}px`;
-    
-    // Find and replace "oklch" colors with RGB equivalents in the clone
-    // This is a workaround for html2canvas not supporting oklch color format
-    const elementsWithStyles = clonedElement.querySelectorAll('*');
-    elementsWithStyles.forEach((el) => {
-      const element = el as HTMLElement;
-      if (element.style) {
-        // Get the computed style to get actual color values
-        const computedStyle = window.getComputedStyle(element);
-        
-        // Set the background color using computed RGB values
-        if (computedStyle.backgroundColor) {
-          element.style.backgroundColor = computedStyle.backgroundColor;
+    const backgroundColor = isDarkMode ? '#0a0a0a' : '#ffffff';
+    console.log('Using background color:', backgroundColor, 'isDarkMode:', isDarkMode);
+
+    // Apply OKLCH normalization to source element before capturing
+    console.log('Processing element for OKLCH conversion');
+    normaliseOklch(sourceEl);
+
+    // Try capturing the element directly
+    return await toPng(sourceEl, {
+      pixelRatio: 2,
+      cacheBust: true,
+      backgroundColor: backgroundColor,
+      width: sourceEl.offsetWidth,
+      height: sourceEl.offsetHeight,
+      style: {
+        margin: '0',
+        padding: '0'
+      },
+      filter: (node: HTMLElement) => {
+        // Skip script tags and other problematic elements
+        if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') {
+          return false;
         }
-        
-        // Set text color using computed RGB values
-        if (computedStyle.color) {
-          element.style.color = computedStyle.color;
-        }
-        
-        // Set border color using computed RGB values
-        if (computedStyle.borderColor) {
-          element.style.borderColor = computedStyle.borderColor;
-        }
+        return true;
       }
     });
-    
-    // Create a canvas from the cloned and fixed element
-    const canvas = await html2canvas(clonedElement, {
-      scale: 2, // Higher scale for better quality
-      useCORS: true, // Allow images from other domains
-      logging: false,
-      backgroundColor: '#ffffff', // White background instead of transparent
-      ignoreElements: (element) => {
-        // Skip any elements that might still cause issues
-        return element.tagName === 'IFRAME' || 
-               (element.nodeName === '#text' && element.nodeValue?.includes('oklch')) || false;
-      }
-    });
-    
-    // Clean up - remove the temporary container
-    document.body.removeChild(tempContainer);
-    
-    // Convert the canvas to a data URL
-    return canvas.toDataURL('image/png');
   } catch (error) {
     console.error('Failed to capture element as image:', error);
     return null;
@@ -152,9 +128,7 @@ export const shareRaceResults = async (
 ) => {
   const text = `🏆 ${winnerName} just won my Chain Derby race with a blazing fast ${winnerTime}ms transaction time! Raced against ${totalChains} different blockchains.`;
   
-  const hashtags = ['ChainDerby', 'Blockchain', 'Web3', 'TransactionSpeed'];
-  
-  await shareToTwitter(text, imageDataUrl, hashtags);
+  await shareToTwitter(text, imageDataUrl);
 };
 
 /**

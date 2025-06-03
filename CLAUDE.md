@@ -64,7 +64,12 @@ This is a Chain Derby application that compares transaction speeds across differ
 4. Real-time updates track transaction confirmation times
 5. Results are displayed with rankings and timing data
 
-#### Data Models
-- `ChainRaceStatus`: Tracks race phases (idle, funding, ready, racing, finished)
-- `ChainBalance`: Stores balance information for each chain
-- `RaceResult`: Tracks race progress and results for each chain
+#### Key TypeScript Interfaces
+- `ChainRaceStatus`: Type for race phases (idle, funding, ready, racing, finished)
+- `ChainBalance`: Balance information for each chain (chainId, balance, hasBalance, error)
+- `RaceResult`: Core race tracking interface with performance metrics, visual styling, transaction hashes, latencies, and completion status
+- `TransactionCount`: Type for number of transactions per chain (currently fixed at 10)
+- `ChainConfig`: Extends viem's Chain with UI properties (color, emoji, logo)
+- `ModalContextType` & `ModalProps`: Application-wide modal management
+- `PageContextType`: Page-level state and view preferences
+- `NavigationItem`: Navigation structure with submenu support

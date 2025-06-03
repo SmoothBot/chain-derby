@@ -1,12 +1,12 @@
 "use client";
 
-import { Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
-import { CopyIcon, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { CopyIcon, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
 export function EmbeddedWallet() {
-  const { account, privateKey, resetWallet } = useChainRaceContext();
+  const { account, privateKey } = useChainRaceContext();
   const [copied, setCopied] = useState<"address" | "key" | null>(null);
   const [showKey, setShowKey] = useState(false);
   

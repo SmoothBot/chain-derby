@@ -182,6 +182,7 @@ function ChainRaceTrack({ result, index }: { result: RaceResult, index: number }
                 alt={`${result.position} Trophy`} 
                 width={83} 
                 height={100}
+                style={{ width: 'auto', height: 'auto' }}
               />         
         </div>
       )}
@@ -215,7 +216,7 @@ function ChainRaceTrack({ result, index }: { result: RaceResult, index: number }
       </div>
       
       {/* Chain name label on the left */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/90 rounded-lg px-3 py-2 shadow-md min-w-[240px]">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/90 dark:bg-gray-900/90 rounded-lg px-3 py-2 shadow-md min-w-[240px]">
         <div className="flex items-center gap-3">
           {/* Chain logo */}
           <div className="flex-shrink-0">
@@ -232,12 +233,12 @@ function ChainRaceTrack({ result, index }: { result: RaceResult, index: number }
           </div>
           <div className="flex flex-col overflow-hidden">
             <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-black truncate">{result.name}</span>
+              <span className="text-xl font-bold text-black dark:text-white truncate">{result.name}</span>
               {result.status === "success" && result.position && result.position <= 3 && (
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                  result.position === 1 ? "bg-yellow-100 text-yellow-800" :
-                  result.position === 2 ? "bg-gray-100 text-gray-700" :
-                  "bg-amber-100 text-amber-800"
+                  result.position === 1 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-600 dark:text-yellow-100" :
+                  result.position === 2 ? "bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-100" :
+                  "bg-amber-100 text-amber-800 dark:bg-amber-600 dark:text-amber-100"
                 }`}>
                   {result.position === 1 ? (
                     <span className="flex items-center gap-0.5">
@@ -247,14 +248,14 @@ function ChainRaceTrack({ result, index }: { result: RaceResult, index: number }
                 </span>
               )}
             </div>
-            <div className="flex flex-col text-xs text-gray-600 mt-0.5">
+            <div className="flex flex-col text-xs text-gray-600 dark:text-gray-300 mt-0.5">
               {result.status === "success" && result.averageLatency && (
                 <div className="flex justify-between gap-2">
                   <span className="flex items-center font-medium">
                     <Clock size={10} className="inline mr-1" /> {result.averageLatency}ms avg
                   </span>
                   {result.totalLatency && (
-                    <span className="text-gray-500">
+                    <span className="text-gray-500 dark:text-gray-400">
                       {(result.totalLatency / 1000).toFixed(2)}s total
                     </span>
                   )}
@@ -298,9 +299,9 @@ function ChainRaceTrack({ result, index }: { result: RaceResult, index: number }
                   width={1080} 
                   height={172}
                   className="max-w-none animate-sprite"
-                  // style={{
-                  //   animationPlayState: result.status === "success" ? 'paused' : 'running'
-                  // }}
+                  style={{
+                    animationPlayState: result.status === "success" ? 'paused' : 'running'
+                  }}
                 />
               </div>
               

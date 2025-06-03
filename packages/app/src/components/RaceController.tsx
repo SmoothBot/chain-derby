@@ -120,14 +120,12 @@ export function RaceController() {
                     onCheckedChange={() => toggleChain(chain.id)}
                     disabled={status === "racing"}
                   >
-                    <span 
-                      className="mr-2"
+                    <div 
+                      className="mr-2 w-3 h-3 rounded-full"
                       style={{ 
-                        color: chain.color,
+                        backgroundColor: chain.color,
                       }}
-                    >
-                      {chain.emoji}
-                    </span>
+                    />
                     {chain.name}
                     {!chain.testnet && 
                       <span className="ml-2 text-xs opacity-60">(mainnet)</span>

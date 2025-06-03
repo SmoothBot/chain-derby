@@ -1,0 +1,27 @@
+{
+  "name": "Chain Derby - Blockchain Transaction Speed Racing",
+  "short_name": "Chain Derby",
+  "description": "Race your transactions across multiple EVM blockchains and discover which chain is the fastest.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/horse.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/horse.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity", "utilities"],
+  "lang": "en-US",
+  "dir": "ltr"
+}

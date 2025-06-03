@@ -93,7 +93,7 @@ export function LeaderboardPanel() {
           <div>
             <CardTitle className="text-2xl flex items-center gap-2">
               <Trophy className="text-yellow-500 h-6 w-6" />
-              Race Results
+              Chain Derby
             </CardTitle>
             <CardDescription>
               {transactionCount > 1 

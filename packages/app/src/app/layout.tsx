@@ -29,15 +29,62 @@ const fkGrotesk = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Chain Derby",
-  description:
-    "Chain Derby - Compare transaction speeds across different EVM-compatible blockchains",
+  title: "Chain Derby | Blockchain Transaction Speed Racing",
+  description: "Race your transactions across multiple EVM blockchains and discover which chain is the fastest. Compare transaction speeds, latency, and performance in real-time blockchain racing.",
+  keywords: ["blockchain", "transaction speed", "EVM", "crypto", "racing", "blockchain comparison", "transaction latency", "Web3", "DeFi"],
+  authors: [{ name: "Chain Derby Team" }],
+  creator: "Chain Derby",
+  publisher: "Chain Derby",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   icons: {
     icon: [
-      { url: "/favicon_light.svg", media: "(prefers-color-scheme: light)" },
-      { url: "/favicon_dark.svg", media: "(prefers-color-scheme: dark)" },
+      { url: "/horse.png", sizes: "any" },
+      { url: "/favicon.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [
+      { url: "/horse.png", sizes: "180x180", type: "image/png" },
     ],
   },
+  manifest: "/manifest.json",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://chainderby.com",
+    title: "Chain Derby | Blockchain Transaction Speed Racing",
+    description: "Race your transactions across multiple EVM blockchains and discover which chain is the fastest. Compare transaction speeds, latency, and performance in real-time.",
+    siteName: "Chain Derby",
+    images: [
+      {
+        url: "/horse.png",
+        width: 800,
+        height: 600,
+        alt: "Chain Derby - Blockchain Racing",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Chain Derby | Blockchain Transaction Speed Racing",
+    description: "Race your transactions across multiple EVM blockchains and discover which chain is the fastest.",
+    images: ["/horse.png"],
+    creator: "@chainderby",
+    site: "@chainderby",
+  },
+  metadataBase: new URL("https://chainderby.com"),
+  alternates: {
+    canonical: "/",
+  },
+  category: "Technology",
 };
 
 export default function RootLayout({
