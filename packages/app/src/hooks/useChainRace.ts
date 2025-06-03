@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createPublicClient, createWalletClient, http, type Hex, type Chain } from "viem";
+import { createPublicClient, createWalletClient, http, type Hex, type Chain, TransactionReceipt } from "viem";
 import { raceChains } from "@/chain/networks";
 import { useEmbeddedWallet } from "./useEmbeddedWallet";
 import { createSyncPublicClient, syncTransport } from "rise-shred-client";
@@ -369,7 +369,7 @@ export function useChainRace() {
               };
               
               // Log transaction parameters in a way that handles EIP-1559 transactions
-              console.log(`Signing tx #${txIndex} for ${chain.name} with params:`, {
+              console.log(`Preo-signing tx #${txIndex} for ${chain.name} with params:`, {
                 ...Object.fromEntries(
                   Object.entries(txParams).map(([k, v]) => {
                     if (typeof v === 'bigint') return [k, v.toString()];
@@ -577,17 +577,19 @@ export function useChainRace() {
               
               // Create a custom request to use the standard send transaction method
               // MegaETH devs intended realtime_sendRawTransaction but it's not a standard method
-              const txHashResult = await publicClient!.request({
-                method: 'eth_sendRawTransaction',
+              const receipt = await publicClient!.request({
+                // @ts-ignore
+                method: 'realtime_sendRawTransaction',
                 params: [txToSend as `0x${string}`]
-              });
+              }) as TransactionReceipt | null;
               
               // The result is the transaction hash directly
-              if (!txHashResult) {
+              if (!receipt) {
                 throw new Error(`MegaETH transaction sent but no hash returned for tx #${txIndex}`);
               }
               
-              txHash = txHashResult as Hex;
+              txHash = receipt.transactionHash as Hex;
+              console.log(txHash)
               
               // Calculate transaction latency for MegaETH
               const txEndTime = Date.now();

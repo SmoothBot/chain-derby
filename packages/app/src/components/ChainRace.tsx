@@ -182,6 +182,7 @@ function ChainRaceTrack({ result, index }: { result: RaceResult, index: number }
                 alt={`${result.position} Trophy`} 
                 width={83} 
                 height={100}
+                style={{ width: 'auto', height: 'auto' }}
               />         
         </div>
       )}
@@ -298,9 +299,9 @@ function ChainRaceTrack({ result, index }: { result: RaceResult, index: number }
                   width={1080} 
                   height={172}
                   className="max-w-none animate-sprite"
-                  // style={{
-                  //   animationPlayState: result.status === "success" ? 'paused' : 'running'
-                  // }}
+                  style={{
+                    animationPlayState: result.status === "success" ? 'paused' : 'running'
+                  }}
                 />
               </div>
               
