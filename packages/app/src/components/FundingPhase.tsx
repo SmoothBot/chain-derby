@@ -3,8 +3,9 @@
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Separator } from "@/components/ui";
 import { raceChains } from "@/chain/networks";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
-import { RefreshCw, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { RefreshCw, CheckCircle, XCircle, Loader2, ExternalLink, Droplets, Circle } from "lucide-react";
 import { formatEther } from "viem";
+import Image from "next/image";
 
 export function FundingPhase() {
   const { account, balances, checkBalances, isLoadingBalances, selectedChains, setSelectedChains } = useChainRaceContext();
@@ -79,7 +80,15 @@ export function FundingPhase() {
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <span className="text-2xl">{chain.emoji}</span>
+                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                      <Image 
+                        src={chain.logo || "/logos/rise.png"}
+                        alt={`${chain.name} Logo`}
+                        width={32}
+                        height={32}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                     {isSelected && (
                       <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#b197fc] rounded-full border border-background animate-pulse"></div>
                     )}
@@ -93,10 +102,37 @@ export function FundingPhase() {
                 </div>
                 
                 <div className="flex items-center gap-2">
+                  {/* Faucet link for testnet chains */}
+                  {chain.testnet && chain.faucetUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs p-1 h-auto hover:bg-transparent opacity-70 hover:opacity-100"
+                      asChild
+                      onClick={(e) => e.stopPropagation()} // Prevent row click when clicking faucet
+                    >
+                      <a 
+                        href={chain.faucetUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-blue-500 hover:text-blue-600"
+                        title={`Get ${chain.nativeCurrency.symbol} from faucet`}
+                      >
+                        <Droplets size={12} />
+                        <span>Faucet</span>
+                      </a>
+                    </Button>
+                  )}
+                  
                   {!chainBalance ? (
                     <Loader2 size={20} className="animate-spin text-muted-foreground" />
                   ) : hasBalance ? (
-                    <CheckCircle size={20} className="text-green-500" />
+                    // Show checkmark for selected chains with balance, circle for unselected chains with balance
+                    isSelected ? (
+                      <CheckCircle size={20} className="text-green-500" />
+                    ) : (
+                      <Circle size={20} className="text-gray-400" />
+                    )
                   ) : (
                     <>
                       <XCircle size={20} className="text-red-500" />
@@ -123,6 +159,7 @@ export function FundingPhase() {
             );
           })}
         </div>
+
 
       </CardContent>
     </Card>

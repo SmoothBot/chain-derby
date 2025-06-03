@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
-import { RefreshCw, Play, ChevronDown, Settings } from "lucide-react";
+import { RefreshCw, Play, ChevronDown, Settings, ExternalLink, Droplets } from "lucide-react";
 import { TransactionCount } from "@/hooks/useChainRace";
 import { raceChains } from "@/chain/networks";
 

@@ -1,65 +1,99 @@
 # Chain Derby
 
-This repository contains a Next.js application designed to compare the performance of the **RISE testnet** against other EVM-compatible blockchains. The application provides a visual race track to directly compare transaction speeds and latencies across different chains.
+A blockchain transaction speed racing application that compares transaction latency across EVM-compatible networks.
 
-## Purpose
+## Overview
 
-The primary goal of this application is to:
-
-1. Demonstrate the superior performance of the RISE testnet compared to other EVM chains
-2. Provide a visual and interactive way to measure transaction latencies 
-3. Compare both average and total latency metrics across multiple transactions
-4. Showcase the benefits of RISE's high-performance blockchain architecture
+Chain Derby sends parallel transactions to multiple blockchain networks and measures confirmation times. Users can compare performance across different chains through a racing interface.
 
 ## Features
 
-- Interactive race visualization showing real-time transaction progress
-- Support for multiple transaction count modes (1, 5, 10, or 20 transactions)
-- Detailed metrics including average latency and total latency
-- Embedded wallet for easy testing across multiple chains
-- Simple funding process with faucet links
-- Pre-signed transaction optimization for accurate timing
-- Dark mode support
+- Parallel transaction testing across multiple EVM chains
+- Embedded wallet generation and management
+- Real-time transaction confirmation tracking
+- Performance metrics and race results
+- Support for RISE, Monad, MegaETH, Sonic, Base, and Base Sepolia
+- Dark/light mode
+- Testnet faucet integration
 
-## Supported Chains
+## Technology Stack
 
-The application currently supports racing against these EVM-compatible chains:
-- RISE Testnet
-- Monad Testnet
-- MegaETH Testnet
-- Base Mainnet
-- Sonic Mainnet
+- Next.js 15 with React 19 and TypeScript
+- Viem/Wagmi for blockchain interactions
+- Tailwind CSS v4
+- Radix UI components
+- Turbopack build tool
 
-## Getting Started
+## Installation
 
-First, run the development server:
+1. Clone the repository
+   ```bash
+   git clone https://github.com/SmoothBot/horse-race.git
+   cd horse-race/packages/app
+   ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+2. Install dependencies
+   ```bash
+   npm install
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
+3. Start development server
+   ```bash
+   npm run dev
+   ```
+
+4. Open `http://localhost:3000`
+
+## Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
 
 ## How It Works
 
-1. An embedded wallet is automatically generated and stored in your browser
-2. Fund your wallet using the provided faucet links for each chain
-3. Select the number of transactions to run (default is 10, but you can choose 1, 5, or 20)
-4. Start the race and watch the real-time results
-5. Compare the performance metrics to see which chain is fastest
+1. Generate embedded wallet (stored locally)
+2. Fund wallet using provided faucet links
+3. Select chains for testing
+4. Send parallel transactions and measure confirmation times
+5. View results and performance metrics
 
-## Built With
+## Supported Networks
 
-- [Next.js 14](https://nextjs.org) - React framework with App Router
-- [React 19](https://react.dev) - UI library
-- [TypeScript](https://www.typescriptlang.org) - Type safety
-- [Viem](https://viem.sh) - Ethereum library for transaction handling
-- [Radix UI](https://www.radix-ui.com) - Accessible UI primitives
-- [Tailwind CSS](https://tailwindcss.com) - Utility-first styling
-- [Next Themes](https://github.com/pacocoursey/next-themes) - Dark mode support
+- RISE Testnet
+- Monad Testnet
+- MegaETH Testnet
+- Sonic
+- Base
+- Base Sepolia
+
+## Project Structure
+
+```
+packages/app/
+├── src/
+│   ├── app/              # Next.js pages
+│   ├── components/       # React components
+│   ├── chain/           # Blockchain configurations
+│   ├── hooks/           # Custom hooks
+│   ├── providers/       # Context providers
+│   └── lib/             # Utilities
+└── public/              # Static assets
+```
+
+## Important
+
+This tool compares Layer 1 and Layer 2 confirmations, which have different security models. Faster confirmation times do not indicate better security or decentralization. 
+
+**Do Your Own Research** - Networks vary in security assumptions, finality guarantees, decentralization, and economic security.
+
+Educational purposes only.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on adding new chains, fixing bugs, and improving the application.
+
+## License
+
+MIT License
