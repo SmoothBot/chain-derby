@@ -1,4 +1,3 @@
-import { DynamicFavicon } from "@/components/DynamicFavicon";
 import { Modal } from "@/components/Modal";
 import { AppProvider } from "@/providers";
 import { ToastContainer } from "react-toastify";
@@ -48,11 +47,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/horse.png", sizes: "any" },
+      { url: "/favicon.svg", sizes: "any", type: "image/svg+xml" },
       { url: "/favicon.png", sizes: "32x32", type: "image/png" },
     ],
     apple: [
-      { url: "/horse.png", sizes: "180x180", type: "image/png" },
+      { url: "/favicon.png", sizes: "180x180", type: "image/png" },
     ],
   },
   manifest: "/manifest.json",
@@ -98,7 +97,6 @@ export default function RootLayout({
         className={clsx(fkDisplay.variable, fkGrotesk.variable, "font-sans")}
       >
         <AppProvider>
-          <DynamicFavicon />
           <Modal />
           <ToastContainer theme="colored" icon={false} />
           <main className="mx-auto w-full h-auto relative min-h-screen">
