@@ -71,7 +71,7 @@ export default function Home() {
                   className="flex items-center gap-2"
                 >
                   <a 
-                    href="https://github.com/SmoothBot/horse-race/tree/ui-upgrade#" 
+                    href="https://github.com/SmoothBot/horse-race/blob/demo/CONTRIBUTING.md" 
                     target="_blank" 
                     rel="noopener noreferrer"
                   >
