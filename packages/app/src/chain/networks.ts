@@ -1,5 +1,5 @@
 import { Chain } from "viem";
-import { sonic, base, megaethTestnet, baseSepolia, monadTestnet, riseTestnet } from "viem/chains";
+import { sonic, megaethTestnet, baseSepolia, monadTestnet, riseTestnet } from "viem/chains";
 
 export interface ChainConfig extends Chain {
   testnet: boolean;
@@ -8,8 +8,18 @@ export interface ChainConfig extends Chain {
   faucetUrl?: string; // Faucet URL for testnet chains
 }
 
-export const riseTestnet_ = {
+function getRpcUrls(chain: Chain, url: string | undefined) {
+  return {
+    ...chain.rpcUrls,
+    default: {
+      http: [url || chain.rpcUrls.default.http[0]]
+    },
+  }
+}
+
+const riseTestnet_ = {
   ...riseTestnet,
+  rpcUrls: getRpcUrls(riseTestnet, process.env.NEXT_PUBLIC_RISE_TESTNET_RPC_URL),
   testnet: true,
   color: "#7967E5",
   logo: "/logos/rise.png",
@@ -17,8 +27,9 @@ export const riseTestnet_ = {
 } as const as ChainConfig;
 
 // Monad Testnet
-export const monadTestnet_ = {
+const monadTestnet_ = {
   ...monadTestnet,
+  rpcUrls: getRpcUrls(monadTestnet, process.env.NEXT_PUBLIC_MONAD_TESTNET_RPC_URL),
   testnet: true,
   color: "#200053", // Purple color for Monad
   logo: "/logos/monad.png",
@@ -26,32 +37,27 @@ export const monadTestnet_ = {
 } as const as ChainConfig;
 
 // MegaETH Testnet
-export const megaEthTestnet = {
+const megaEthTestnet = {
   ...megaethTestnet,
+  rpcUrls: getRpcUrls(megaethTestnet, process.env.NEXT_PUBLIC_MEGAETH_TESTNET_RPC_URL),
   color: "#8e8d8f", // Blue color for MegaETH
   logo: "/logos/megaeth.png",
   faucetUrl: "https://testnet.megaeth.com/",
 } as const as ChainConfig;
 
-// Base Mainnet
-export const baseMainnet = {
-  ...base,
-  testnet: false,
-  color: "#0052FF", // Blue color for Base
-  logo: "/logos/base.png",
-} as const as ChainConfig;
-
-// Sonic Testnet
-export const sonicMainnet = {
+// Sonic Mainnet
+const sonicMainnet = {
   ...sonic,
+  rpcUrls: getRpcUrls(sonic, process.env.NEXT_PUBLIC_SONIC_MAINNET_RPC_URL),
   testnet: false,
   color: "#00AEE9", // Teal/Blue color for Sonic
   logo: "/logos/sonic.png",
 } as const as ChainConfig;
 
 // Base Sepolia with preconf RPC
-export const baseSepolia_ = {
+const baseSepolia_ = {
   ...baseSepolia,
+  rpcUrls: getRpcUrls(baseSepolia, process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL),
   testnet: true,
   color: "#0052FF", // Blue color for Base
   logo: "/logos/base.png",
@@ -68,6 +74,9 @@ export const raceChains = [
 ];
 
 
-
 // Keep this for compatibility
-export const supportedChains = raceChains.map(chain => ({ chainId: chain.id }));
+export const getRaceChains = () => {
+  console.log('Fetching derby chains...');
+  console.log('Chains:', raceChains.map(chain => chain.rpcUrls).join(', '));
+  return raceChains
+}
