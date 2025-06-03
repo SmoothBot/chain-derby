@@ -75,14 +75,44 @@ export const captureElementAsImage = async (sourceEl: HTMLElement): Promise<stri
     }
 
     console.log('Starting image capture for element:', sourceEl);
-
-    // Detect if we're in dark mode
-    const isDarkMode = document.documentElement.classList.contains('dark') || 
-                      document.documentElement.getAttribute('data-theme') === 'dark' ||
-                      window.matchMedia('(prefers-color-scheme: dark)').matches;
     
-    const backgroundColor = isDarkMode ? '#0a0a0a' : '#ffffff';
-    console.log('Using background color:', backgroundColor, 'isDarkMode:', isDarkMode);
+    // Small delay to ensure DOM is fully rendered and theme is applied
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Get the actual computed background color from the document
+    const computedStyle = window.getComputedStyle(document.documentElement);
+    const computedBgColor = computedStyle.getPropertyValue('--background') || 
+                           computedStyle.backgroundColor ||
+                           '#ffffff';
+    
+    // Detect if we're in dark mode - check multiple sources
+    const htmlClassList = document.documentElement.classList;
+    const htmlDataTheme = document.documentElement.getAttribute('data-theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    // Check each condition individually to debug
+    const htmlHasDark = htmlClassList.contains('dark');
+    
+    // Be more conservative - only consider it dark mode if next-themes explicitly sets it
+    const isDarkMode = htmlHasDark;
+    
+    // Use explicit colors based on theme, not computed styles which might be OKLCH
+    let backgroundColor = '#ffffff'; // Default to light mode
+    if (isDarkMode) {
+      backgroundColor = '#0a0a0a'; // Dark mode
+    } else {
+      // Force light mode - ensure we never use a dark background in light mode
+      backgroundColor = '#ffffff';
+    }
+    
+    console.log('Theme detection:', {
+      htmlHasDark,
+      systemPrefersDark,
+      htmlDataTheme,
+      computedBgColor,
+      finalIsDarkMode: isDarkMode,
+      backgroundColor
+    });
 
     // Apply OKLCH normalization to source element before capturing
     console.log('Processing element for OKLCH conversion');
@@ -93,11 +123,13 @@ export const captureElementAsImage = async (sourceEl: HTMLElement): Promise<stri
       pixelRatio: 2,
       cacheBust: true,
       backgroundColor: backgroundColor,
-      width: sourceEl.offsetWidth,
-      height: sourceEl.offsetHeight,
+      width: sourceEl.offsetWidth + 40, // Add extra width for padding
+      height: sourceEl.offsetHeight + 40, // Add extra height for padding
       style: {
         margin: '0',
-        padding: '0'
+        padding: '20px', // Add padding around the captured content
+        borderRadius: '12px', // Add rounded corners
+        overflow: 'hidden'
       },
       filter: (node: HTMLElement) => {
         // Skip script tags and other problematic elements

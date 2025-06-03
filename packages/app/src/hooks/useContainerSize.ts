@@ -1,21 +1,28 @@
 import { useEffect, useLayoutEffect, useState } from "react";
+import { useDebounce } from "@/lib/debounce";
 
 export function useContainerSize(id: string) {
   const [size, setSize] = useState([0, 0]);
   const [isMounted, setIsMounted] = useState(false);
 
-  useLayoutEffect(() => {
+  const updateSize = () => {
     const container = document.getElementById(id);
-    function updateSize() {
-      setSize([container?.offsetWidth ?? 0, container?.offsetHeight ?? 0]);
-    }
+    setSize([container?.offsetWidth ?? 0, container?.offsetHeight ?? 0]);
+  };
 
-    window.addEventListener("resize", updateSize);
+  // Debounce the resize handler to avoid excessive state updates (16ms ≈ 60fps)
+  const debouncedUpdateSize = useDebounce(updateSize, 16, [id]);
+
+  useLayoutEffect(() => {
+    // Update size immediately on mount
     updateSize();
+    
+    // Add debounced resize listener
+    window.addEventListener("resize", debouncedUpdateSize);
 
-    return () => window.removeEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", debouncedUpdateSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMounted]);
+  }, [isMounted, debouncedUpdateSize]);
 
   useEffect(() => {
     setIsMounted(true);

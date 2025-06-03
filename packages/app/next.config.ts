@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  reactStrictMode: false, // Set to false to reduce hydration errors
+  reactStrictMode: true, // Enable strict mode to catch side-effect bugs early
   turbopack: {
     rules: {
       "*.svg": {

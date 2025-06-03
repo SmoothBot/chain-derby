@@ -40,6 +40,11 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --color-chain-rise: var(--chain-rise);
+  --color-chain-monad: var(--chain-monad);
+  --color-chain-megaeth: var(--chain-megaeth);
+  --color-chain-base: var(--chain-base);
+  --color-chain-sonic: var(--chain-sonic);
 }
 
 :root {
@@ -75,6 +80,11 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --chain-rise: #7967E5;
+  --chain-monad: #200053;
+  --chain-megaeth: #8e8d8f;
+  --chain-base: #0052FF;
+  --chain-sonic: #00AEE9;
 }
 
 .dark {
@@ -109,6 +119,11 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --chain-rise: #7967E5;
+  --chain-monad: #200053;
+  --chain-megaeth: #8e8d8f;
+  --chain-base: #0052FF;
+  --chain-sonic: #00AEE9;
 }
 
 @layer base {

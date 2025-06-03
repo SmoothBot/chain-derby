@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Chain Derby! This tool demonstrat
 
 ## Quick Start
 
-1. **Fork and clone the repository**
+1. **clone the repository**
    ```bash
    git clone https://github.com/YourUsername/horse-race.git
    cd horse-race/packages/app
