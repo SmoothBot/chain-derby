@@ -14,7 +14,9 @@ export function normaliseOklch(node: HTMLElement): void {
       const value = el.style.getPropertyValue(prop).trim();
       if (value.startsWith('oklch(')) {
         const rgb = toRgb(oklch(value as unknown as string));
-        el.style.setProperty(prop, formatRgb(rgb));
+        if (rgb) {
+          el.style.setProperty(prop, formatRgb(rgb));
+        }
       }
     });
 
@@ -23,7 +25,9 @@ export function normaliseOklch(node: HTMLElement): void {
       const val = el.getAttribute(attr);
       if (val?.startsWith('oklch(')) {
         const rgb = toRgb(oklch(val));
-        el.setAttribute(attr, formatRgb(rgb));
+        if (rgb) {
+          el.setAttribute(attr, formatRgb(rgb));
+        }
       }
     });
 

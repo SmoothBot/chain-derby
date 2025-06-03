@@ -77,12 +77,12 @@ export function DisclaimersButton() {
                   <strong>This test compares Layer 1 confirmations with Layer 2 confirmations, and each blockchain has its own unique security model.</strong>
                 </p>
                 <p>
-                  Layer 1 networks (like Monad & Sonic) and Layer 2 solutions (like Base & RISE) operate with different:
+                  Layer 1 networks (like Monad &amp; Sonic) and Layer 2 solutions (like Base &amp; RISE) operate with different:
                 </p>
                 <ul className="list-disc pl-5 space-y-1">
                   <li><strong>Security assumptions</strong> - L2s inherit security from L1 but add additional trust assumptions</li>
-                  <li><strong>Finality guarantees</strong> - Confirmation times don't reflect the same level of finality</li>
-                  <li><strong>Decentralization levels</strong> - Networks vary in validator count, geographic distribution, and L2's typically employ a centralised sequencer</li>
+                  <li><strong>Finality guarantees</strong> - Confirmation times don&apos;t reflect the same level of finality</li>
+                  <li><strong>Decentralization levels</strong> - Networks vary in validator count, geographic distribution, and L2&apos;s typically employ a centralised sequencer</li>
                   <li><strong>Economic security</strong> - Different amounts of value securing each network</li>
                 </ul>
                 <p className="font-semibold">

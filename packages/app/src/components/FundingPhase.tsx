@@ -1,9 +1,9 @@
 "use client";
 
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Separator } from "@/components/ui";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
 import { raceChains } from "@/chain/networks";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
-import { RefreshCw, CheckCircle, XCircle, Loader2, ExternalLink, Droplets, Circle } from "lucide-react";
+import { RefreshCw, CheckCircle, XCircle, Loader2, Droplets, Circle } from "lucide-react";
 import { formatEther } from "viem";
 import Image from "next/image";
 

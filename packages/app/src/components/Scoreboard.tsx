@@ -71,7 +71,10 @@ export function Scoreboard() {
                   </td>
                   <td className="py-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">{result.emoji}</span>
+                      <div 
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: result.color }}
+                      />
                       <span>{result.name}</span>
                     </div>
                   </td>

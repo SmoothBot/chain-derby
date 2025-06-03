@@ -84,7 +84,11 @@ export const captureElementAsImage = async (sourceEl: HTMLElement): Promise<stri
     const backgroundColor = isDarkMode ? '#0a0a0a' : '#ffffff';
     console.log('Using background color:', backgroundColor, 'isDarkMode:', isDarkMode);
 
-    // Try capturing the original element directly with OKLCH normalization in options
+    // Apply OKLCH normalization to source element before capturing
+    console.log('Processing element for OKLCH conversion');
+    normaliseOklch(sourceEl);
+
+    // Try capturing the element directly
     return await toPng(sourceEl, {
       pixelRatio: 2,
       cacheBust: true,
@@ -101,21 +105,6 @@ export const captureElementAsImage = async (sourceEl: HTMLElement): Promise<stri
           return false;
         }
         return true;
-      },
-      onClone: (clonedDoc: Document, clonedElement: HTMLElement) => {
-        console.log('Processing cloned element for OKLCH conversion');
-        // Apply OKLCH normalization to the cloned element
-        normaliseOklch(clonedElement);
-        
-        // Ensure all images are loaded
-        const images = clonedElement.querySelectorAll('img');
-        images.forEach((img) => {
-          if (img.src && !img.complete) {
-            img.onload = () => console.log('Image loaded:', img.src);
-          }
-        });
-        
-        return clonedElement;
       }
     });
   } catch (error) {
