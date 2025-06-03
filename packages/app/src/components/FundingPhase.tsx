@@ -3,12 +3,34 @@
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
 import { raceChains } from "@/chain/networks";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
+import { useIsMobile } from "@/hooks/useMobile";
 import { RefreshCw, CheckCircle, XCircle, Loader2, Droplets, Circle } from "lucide-react";
 import { formatEther } from "viem";
 import Image from "next/image";
 
 export function FundingPhase() {
   const { account, balances, checkBalances, isLoadingBalances, selectedChains, setSelectedChains } = useChainRaceContext();
+  const isMobile = useIsMobile();
+  
+  // Format balance for display - truncate on mobile
+  const formatBalance = (balance: bigint) => {
+    const etherValue = formatEther(balance);
+    if (isMobile) {
+      // On mobile, show max 4 decimal places or scientific notation for very small values
+      const num = parseFloat(etherValue);
+      if (num === 0) return '0';
+      if (num < 0.0001) {
+        return num.toExponential(2);
+      }
+      return num.toFixed(4).replace(/\.?0+$/, '');
+    }
+    // On desktop, show more precision but still reasonable
+    const num = parseFloat(etherValue);
+    if (num < 0.000001) {
+      return num.toExponential(3);
+    }
+    return num.toFixed(6).replace(/\.?0+$/, '');
+  };
   
   if (!account) {
     return (
@@ -24,13 +46,13 @@ export function FundingPhase() {
   
   return (
     <Card className="w-full pt-6 gap-3">
-      <CardHeader className="flex flex-row items-center justify-between pb-0 mb-0">
+      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between pb-0 mb-0 gap-4 sm:gap-0">
         <CardTitle color="mb-0">Race Control</CardTitle>
         <Button 
           variant="outline" 
           onClick={checkBalances} 
           disabled={isLoadingBalances}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 text-xs sm:text-sm"
         >
           {isLoadingBalances ? (
             <>
@@ -96,7 +118,7 @@ export function FundingPhase() {
                   <div>
                     <h3 className="font-medium text-black dark:text-white">{chain.name}</h3>
                     <p className="text-sm text-gray-700 dark:text-gray-300">
-                      {chainBalance ? `${formatEther(balance)} ${chain.nativeCurrency.symbol}` : "Checking..."}
+                      {chainBalance ? `${formatBalance(balance)} ${chain.nativeCurrency.symbol}` : "Checking..."}
                     </p>
                   </div>
                 </div>

@@ -2,6 +2,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Custom breakpoints for mobile-first design */
+@breakpoint xs {
+  @media (min-width: 375px);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -130,7 +135,9 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
   body {
     @apply bg-background text-foreground;
+    min-width: 0; /* Ensure flex items can shrink on mobile */
   }
 }

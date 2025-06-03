@@ -57,7 +57,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-accent/30">
       <div className="h-full p-4 md:p-8 flex justify-center">
-        <Card className="h-full overflow-x-hidden p-7 w-full max-w-6xl shadow-xl border border-accent/50 rounded-xl">
+        <Card className="h-full overflow-x-hidden p-4 md:p-7 w-full max-w-6xl shadow-xl border border-accent/50 rounded-xl">
         <ChainRace />
           <div className="w-full">
           <div className="grid gap-8">

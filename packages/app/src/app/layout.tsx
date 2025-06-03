@@ -27,6 +27,11 @@ const fkGrotesk = localFont({
   variable: "--font-fk-grotesk",
 });
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+}
+
 export const metadata: Metadata = {
   title: "Chain Derby | Blockchain Transaction Speed Racing",
   description: "Race your transactions across multiple EVM blockchains and discover which chain is the fastest. Compare transaction speeds, latency, and performance in real-time blockchain racing.",
