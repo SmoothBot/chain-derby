@@ -105,7 +105,7 @@ export function LeaderboardPanel() {
             </CardTitle>
             <CardDescription>
               {transactionCount > 1 
-                ? `${transactionCount} transactions per chain`
+                ? `${transactionCount} sequential transactions per chain`
                 : "Single transaction per chain"}
             </CardDescription>
           </div>

@@ -144,7 +144,6 @@ export function FundingPhase() {
                           title={chainBalance.error}
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent row click when clicking retry
-                            console.log(`Retrying balance check for chain ${chain.id}`);
                             checkBalances();
                           }}
                         >

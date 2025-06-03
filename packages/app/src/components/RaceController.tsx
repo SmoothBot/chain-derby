@@ -35,19 +35,13 @@ export function RaceController() {
   } = useChainRaceContext();
   
   const handleAction = () => {
-    console.log("Handle action clicked. Current status:", status);
-    
     if (status === "idle") {
-      console.log("Checking balances...");
       checkBalances();
     } else if (status === "ready") {
-      console.log("Starting race...");
       startRace();
     } else if (status === "funding") {
-      console.log("Checking balances again...");
       checkBalances();
     } else if (status === "finished") {
-      console.log("Resetting race...");
       // Reset to the ready state so the FundingPhase will be shown again
       restartRace(); 
       // The UI will now show FundingPhase again until the user starts a new race
@@ -85,8 +79,6 @@ export function RaceController() {
     );
   }
   
-  // Display the current status in dev mode for debugging
-  console.log("RaceController rendering with status:", status);
   
   return (
     <Card className="w-full">

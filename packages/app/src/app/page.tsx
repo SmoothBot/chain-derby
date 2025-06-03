@@ -83,7 +83,7 @@ export default function Home() {
                   className="flex items-center gap-2"
                 >
                   <a 
-                    href="https://github.com/SmoothBot/horse-race/blob/demo/CONTRIBUTING.md" 
+                    href="https://github.com/SmoothBot/chain-derby" 
                     target="_blank" 
                     rel="noopener noreferrer"
                   >
