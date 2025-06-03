@@ -3,6 +3,7 @@
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { Card, CardContent, CardHeader, CardTitle, Button } from "@/components/ui";
 import { Clock, XCircle, Trophy, SkipForward } from "lucide-react";
+import { getChainBgClass } from "@/lib/chainColors";
 
 export function Scoreboard() {
   const { results, status, transactionCount, skipChain } = useChainRaceContext();
@@ -72,8 +73,7 @@ export function Scoreboard() {
                   <td className="py-3">
                     <div className="flex items-center gap-2">
                       <div 
-                        className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: result.color }}
+                        className={`w-4 h-4 rounded-full ${getChainBgClass(result.chainId)}`}
                       />
                       <span>{result.name}</span>
                     </div>

@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui";
-import { v4 as uuidv4 } from "uuid";
 
 export function SkeletonStack() {
   const supports = [
@@ -13,9 +12,9 @@ export function SkeletonStack() {
   return (
     <div className="flex flex-wrap gap-4 lg:gap-10 items-center justify-center place-self-center max-w-6xl py-10">
       <div className="flex flex-col gap-3 flex-1 min-w-64">
-        {supports.map((item) => {
+        {supports.map((item, index) => {
           return (
-            <Card key={uuidv4()} className="p-5">
+            <Card key={index} className="p-5">
               <p>{item}</p>
             </Card>
           );

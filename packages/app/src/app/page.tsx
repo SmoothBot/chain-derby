@@ -6,10 +6,22 @@ import { FundingPhase } from "@/components/FundingPhase";
 import { ChainRace } from "@/components/ChainRace";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { DisclaimersButton } from "@/components/DisclaimersModal";
-import { LeaderboardPanel } from "@/components/LeaderboardPanel";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { useState, useEffect } from "react";
 import { ChainRaceStatus } from "@/hooks/useChainRace";
+import dynamic from "next/dynamic";
+
+// Dynamic import for LeaderboardPanel (only loaded when racing/finished)
+const LeaderboardPanel = dynamic(() => import("@/components/LeaderboardPanel").then(mod => ({ default: mod.LeaderboardPanel })), {
+  loading: () => (
+    <Card className="w-full">
+      <div className="flex items-center justify-center h-48">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    </Card>
+  ),
+  ssr: false // Since this only shows during racing, no need for SSR
+});
 
 export default function Home() {
   const { status } = useChainRaceContext();

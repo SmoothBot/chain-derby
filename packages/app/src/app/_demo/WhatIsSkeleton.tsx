@@ -1,6 +1,5 @@
 import { Card } from "@/components/ui";
 import Link from "next/link";
-import { v4 as uuidv4 } from "uuid";
 
 export function WhatIsSkeleton() {
   const supports = [
@@ -44,9 +43,9 @@ export function WhatIsSkeleton() {
         </p>
       </div>
       <div className="flex flex-col gap-3 flex-1 min-w-64">
-        {supports.map((item) => {
+        {supports.map((item, index) => {
           return (
-            <Card key={uuidv4()} className="p-5">
+            <Card key={index} className="p-5">
               <p>{item}</p>
             </Card>
           );

@@ -5,6 +5,7 @@ import { createPublicClient, createWalletClient, http, type Hex, type Chain, Tra
 import { raceChains } from "@/chain/networks";
 import { useEmbeddedWallet } from "./useEmbeddedWallet";
 import { createSyncPublicClient, syncTransport } from "rise-shred-client";
+import { logger } from "@/lib/logger";
 
 export type ChainRaceStatus = "idle" | "funding" | "ready" | "racing" | "finished";
 
@@ -318,12 +319,12 @@ export function useChainRace() {
             
             // Get current fee data and double it for better confirmation chances
             client.getGasPrice().then(gasPrice => {
-              console.log(`Fetched gas price for ${chain.name}: ${gasPrice.toString()} wei`);
+              logger.debug(`Fetched gas price for ${chain.name}`, { chainId: chain.id });
               const doubledGasPrice = gasPrice * BigInt(2);
-              console.log(`Using 2x gas price for ${chain.name}: ${doubledGasPrice.toString()} wei`);
+              logger.debug(`Using 2x gas price for ${chain.name}`, { chainId: chain.id });
               return doubledGasPrice;
             }).catch(error => {
-              console.error(`Failed to get gas price for ${chain.name}:`, error);
+              logger.error(`Failed to get gas price for ${chain.name}`, { chainId: chain.id, error: error.message });
               // Fallback gas prices based on known chain requirements
               const fallbackGasPrice = BigInt(
                 chain.id === 10143 ? 60000000000 : // Monad has higher gas requirements
@@ -331,7 +332,7 @@ export function useChainRace() {
                 chain.id === 17180 ? 1500000000 :  // Sonic
                 1000000000                         // Default fallback (1 gwei)
               );
-              console.log(`Using fallback gas price for ${chain.name}: ${fallbackGasPrice.toString()} wei`);
+              logger.debug(`Using fallback gas price for ${chain.name}`, { chainId: chain.id });
               return fallbackGasPrice;
             }),
             
@@ -341,10 +342,10 @@ export function useChainRace() {
           
           console.timeEnd(`prefetch-chain-${chain.id}`);
           
-          console.log(`Pre-fetched data for ${chain.name}:`, {
-            nonce,
+          logger.debug(`Pre-fetched data for ${chain.name}`, {
             chainId: chain.id,
-            gasPrice: feeData.toString()
+            hasNonce: !!nonce,
+            hasFeeData: !!feeData
           });
           
           // Create wallet client for transaction signing
@@ -367,24 +368,25 @@ export function useChainRace() {
                 data: '0x' as const, // Use const assertion for hex string
               };
               
-              // Log transaction parameters in a way that handles EIP-1559 transactions
-              console.log(`Preo-signing tx #${txIndex} for ${chain.name} with params:`, {
-                ...Object.fromEntries(
-                  Object.entries(txParams).map(([k, v]) => {
-                    if (typeof v === 'bigint') return [k, v.toString()];
-                    return [k, v];
-                  })
-                )
+              // Log transaction preparation without sensitive data
+              logger.debug(`Pre-signing tx #${txIndex} for ${chain.name}`, {
+                chainId: chain.id,
+                txIndex,
+                hasParams: !!txParams
               });
               
               const signedTx = await walletClient.signTransaction(txParams);
               
               if (!signedTx) {
-                console.error(`Failed to sign transaction #${txIndex} for ${chain.name} - result is null`);
+                logger.error(`Failed to sign transaction #${txIndex} for ${chain.name} - result is null`);
                 throw new Error("Signing transaction returned null");
               }
               
-              console.log(`Successfully signed tx #${txIndex} for ${chain.name}, length: ${signedTx.length}`);
+              logger.debug(`Successfully signed tx #${txIndex} for ${chain.name}`, {
+                chainId: chain.id,
+                txIndex,
+                signedLength: signedTx.length
+              });
               signedTransactions.push(signedTx);
             } catch (signError) {
               console.error(`Error signing tx #${txIndex} for ${chain.name}:`, signError);
@@ -518,7 +520,11 @@ export function useChainRace() {
               
             // For logging - get the nonce we're using
             const nonce = currentChainData.nonce + txIndex;
-            console.log(`Using nonce ${nonce} for ${chain.name} transaction #${txIndex}`);
+            logger.debug(`Using nonce for ${chain.name} transaction #${txIndex}`, {
+              chainId: chain.id,
+              txIndex,
+              hasNonce: !!nonce
+            });
             
             if (!signedTransaction) {
               console.warn(`No pre-signed transaction for ${chain.name} tx #${txIndex}, signing now`);
@@ -605,13 +611,12 @@ export function useChainRace() {
                 throw new Error(`No transaction to send for ${chain.name} tx #${txIndex}`);
               }
               
-              // More detailed inspection of txToSend to find the issue
-              console.log(`Raw txToSend for ${chain.name}:`, {
-                type: typeof txToSend,
-                isNull: txToSend === null,
-                isUndefined: txToSend === undefined,
-                value: txToSend,
-                length: txToSend ? txToSend.length : 'N/A'
+              // Log transaction status without sensitive data
+              logger.debug(`Transaction status for ${chain.name}`, {
+                chainId: chain.id,
+                txIndex,
+                hasTransaction: !!txToSend,
+                transactionType: typeof txToSend
               });
               
               // Explicitly verify the transaction is a valid string before sending

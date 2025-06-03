@@ -52,14 +52,6 @@ export const sonicMainnet = {
 // Base Sepolia with preconf RPC
 export const baseSepolia_ = {
   ...baseSepolia,
-  rpcUrls: {
-    default: {
-      http: ["https://sepolia-preconf.base.org"],
-    },
-    public: {
-      http: ["https://sepolia-preconf.base.org"],
-    },
-  },
   testnet: true,
   color: "#0052FF", // Blue color for Base
   logo: "/logos/base.png",
