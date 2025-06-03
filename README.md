@@ -56,7 +56,7 @@ Chain Derby sends parallel transactions to multiple blockchain networks and meas
 1. Generate embedded wallet (stored locally)
 2. Fund wallet using provided faucet links
 3. Select chains for testing
-4. Send parallel transactions and measure confirmation times
+4. Start Race!
 5. View results and performance metrics
 
 ## Supported Networks
