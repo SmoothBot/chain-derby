@@ -1,7 +1,8 @@
 "use client";
 
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
-import { raceChains } from "@/chain/networks";
+import { allChains } from "@/chain/networks";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { useIsMobile } from "@/hooks/useMobile";
 import { RefreshCw, CheckCircle, XCircle, Loader2, Droplets, Circle } from "lucide-react";
@@ -12,24 +13,41 @@ export function FundingPhase() {
   const { account, balances, checkBalances, isLoadingBalances, selectedChains, setSelectedChains } = useChainRaceContext();
   const isMobile = useIsMobile();
   
-  // Format balance for display - truncate on mobile
-  const formatBalance = (balance: bigint) => {
-    const etherValue = formatEther(balance);
-    if (isMobile) {
-      // On mobile, show max 4 decimal places or scientific notation for very small values
-      const num = parseFloat(etherValue);
-      if (num === 0) return '0';
-      if (num < 0.0001) {
-        return num.toExponential(2);
+  // Format balance for display - handle both EVM and Solana
+  const formatBalance = (balance: bigint, chainId: number | string) => {
+    if (typeof chainId === 'string' && chainId.includes('solana')) {
+      // Solana balance formatting (lamports to SOL)
+      const solValue = Number(balance) / LAMPORTS_PER_SOL;
+      if (isMobile) {
+        if (solValue === 0) return '0';
+        if (solValue < 0.0001) {
+          return solValue.toExponential(2);
+        }
+        return solValue.toFixed(4).replace(/\.?0+$/, '');
       }
-      return num.toFixed(4).replace(/\.?0+$/, '');
+      // Desktop formatting
+      if (solValue < 0.000001) {
+        return solValue.toExponential(3);
+      }
+      return solValue.toFixed(6).replace(/\.?0+$/, '');
+    } else {
+      // EVM balance formatting (wei to ETH)
+      const etherValue = formatEther(balance);
+      if (isMobile) {
+        const num = parseFloat(etherValue);
+        if (num === 0) return '0';
+        if (num < 0.0001) {
+          return num.toExponential(2);
+        }
+        return num.toFixed(4).replace(/\.?0+$/, '');
+      }
+      // Desktop formatting
+      const num = parseFloat(etherValue);
+      if (num < 0.000001) {
+        return num.toExponential(3);
+      }
+      return num.toFixed(6).replace(/\.?0+$/, '');
     }
-    // On desktop, show more precision but still reasonable
-    const num = parseFloat(etherValue);
-    if (num < 0.000001) {
-      return num.toExponential(3);
-    }
-    return num.toFixed(6).replace(/\.?0+$/, '');
   };
   
   if (!account) {
@@ -73,7 +91,7 @@ export function FundingPhase() {
         </CardDescription>
         
         <div className="space-y-2">
-          {raceChains.map((chain) => {
+          {allChains.map((chain) => {
             const chainBalance = balances.find(b => b.chainId === chain.id);
             const hasBalance = chainBalance?.hasBalance || false;
             const balance = chainBalance?.balance || BigInt(0);
@@ -118,14 +136,16 @@ export function FundingPhase() {
                   <div>
                     <h3 className="font-medium text-black dark:text-white">{chain.name}</h3>
                     <p className="text-sm text-gray-700 dark:text-gray-300">
-                      {chainBalance ? `${formatBalance(balance)} ${chain.nativeCurrency.symbol}` : "Checking..."}
+                      {chainBalance ? `${formatBalance(balance, chain.id)} ${
+                        'nativeCurrency' in chain ? chain.nativeCurrency.symbol : 'SOL'
+                      }` : "Checking..."}
                     </p>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
                   {/* Faucet link for testnet chains */}
-                  {chain.testnet && chain.faucetUrl && (
+                  {('testnet' in chain ? chain.testnet : true) && chain.faucetUrl && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -138,7 +158,7 @@ export function FundingPhase() {
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-blue-500 hover:text-blue-600"
-                        title={`Get ${chain.nativeCurrency.symbol} from faucet`}
+                        title={`Get ${'nativeCurrency' in chain ? chain.nativeCurrency.symbol : 'SOL'} from faucet`}
                       >
                         <Droplets size={12} />
                         <span>Faucet</span>

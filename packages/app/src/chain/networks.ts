@@ -1,5 +1,6 @@
 import { Chain } from "viem";
 import { sonic, megaethTestnet, baseSepolia, monadTestnet, riseTestnet } from "viem/chains";
+import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 
 export interface ChainConfig extends Chain {
   testnet: boolean;
@@ -64,8 +65,8 @@ const baseSepolia_ = {
   faucetUrl: "https://www.alchemy.com/faucets/base-sepolia",
 } as const as ChainConfig;
 
-// Add the chains we want to include in the race
-export const raceChains = [
+// Add the EVM chains we want to include in the race
+export const evmChains = [
   riseTestnet_,
   monadTestnet_,
   megaEthTestnet,
@@ -73,10 +74,18 @@ export const raceChains = [
   baseSepolia_,
 ];
 
+// All chains (EVM + Solana)
+export const allChains = [...evmChains, ...solanaChains];
+
+// Backward compatibility - rename raceChains to evmChains
+export const raceChains = evmChains;
 
 // Keep this for compatibility
 export const getRaceChains = () => {
   console.log('Fetching derby chains...');
-  console.log('Chains:', raceChains.map(chain => chain.rpcUrls).join(', '));
-  return raceChains
+  console.log('Chains:', evmChains.map(chain => chain.rpcUrls).join(', '));
+  return evmChains
 }
+
+// Export chain type union
+export type AnyChainConfig = ChainConfig | SolanaChainConfig;

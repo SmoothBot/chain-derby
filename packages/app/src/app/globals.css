@@ -90,6 +90,7 @@
   --chain-megaeth: #8e8d8f;
   --chain-base: #0052FF;
   --chain-sonic: #00AEE9;
+  --chain-solana: #9945FF;
 }
 
 .dark {
@@ -129,6 +130,7 @@
   --chain-megaeth: #8e8d8f;
   --chain-base: #0052FF;
   --chain-sonic: #00AEE9;
+  --chain-solana: #9945FF;
 }
 
 @layer base {
