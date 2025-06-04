@@ -46,6 +46,6 @@ export const solanaMainnet: SolanaChainConfig = {
 
 export const solanaChains: SolanaChainConfig[] = [
   solanaTestnet,
-  solanaDevnet,
-  solanaMainnet,
+  // solanaDevnet,
+  // solanaMainnet,
 ];
