@@ -37,7 +37,7 @@ export const solanaMainnet: SolanaChainConfig = {
   id: "solana-mainnet",
   name: "Solana Mainnet",
   cluster: "mainnet-beta",
-  endpoint: process.env.NEXT_PUBLIC_SOLANA_MAINNET_RPC_URL ?? clusterApiUrl("mainnet-beta"),
+  endpoint: process.env.NEXT_PUBLIC_SOLANA_MAINNET_RPC_URL ?? 'https://solana.drpc.org',
   color: "#9945FF",
   logo: "/logos/solana.png",
   commitment: "confirmed",
@@ -46,6 +46,6 @@ export const solanaMainnet: SolanaChainConfig = {
 
 export const solanaChains: SolanaChainConfig[] = [
   solanaTestnet,
-  // solanaDevnet,
-  // solanaMainnet,
+  solanaDevnet,
+  solanaMainnet,
 ];
