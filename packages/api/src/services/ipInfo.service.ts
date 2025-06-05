@@ -25,7 +25,7 @@ export async function getIpInfo(ip: string): Promise<IpInfoResponse> {
     // Add token parameter if it exists
     const tokenParam = token ? `?token=${token}` : '';
     
-    const response = await fetch(`https://ipinfo.io/${ip}/json${tokenParam}`);
+    const response = await fetch(`https://ipinfo.io/${ip}`);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch IP info: ${response.statusText}`);

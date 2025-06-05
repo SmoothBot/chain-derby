@@ -8,6 +8,8 @@ import { useSolanaEmbeddedWallet } from "./useSolanaEmbeddedWallet";
 import { createSyncPublicClient, syncTransport } from "rise-shred-client";
 import { Connection, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import type { SolanaChainConfig } from "@/solana/config";
+import { getGeo } from "@/lib/geo";
+import { saveRaceResults } from "@/lib/api";
 
 export type ChainRaceStatus = "idle" | "funding" | "ready" | "racing" | "finished";
 
@@ -36,6 +38,27 @@ export interface RaceResult {
 }
 
 export type TransactionCount = 1 | 5 | 10 | 20;
+
+export interface RaceSessionPayload {
+  title: string;
+  walletAddress: string;
+  transactionCount: number;
+  status: 'completed';
+  city?: string;
+  region?: string;
+  country?: string;
+  results: ChainResultPayload[];
+}
+
+export interface ChainResultPayload {
+  chainId: number;
+  chainName: string;
+  txLatencies: number[];   // raw per-tx times
+  averageLatency: number;
+  totalLatency: number;
+  status: string;
+  position?: number;
+}
 
 // Constants for localStorage keys
 const LOCAL_STORAGE_SELECTED_CHAINS = "horse-race-selected-chains";
@@ -303,6 +326,46 @@ export function useChainRace() {
       return () => clearTimeout(timer);
     }
   }, [isReady, solanaReady, account, solanaPublicKey, status, checkBalances]);
+
+  // Effect to save race results when race finishes
+  useEffect(() => {
+    const saveResults = async () => {
+      if (status === 'finished' && results.length > 0 && account) {
+        try {
+          const geo = await getGeo();
+          
+          // Convert results to the API payload format
+          const chainResults: ChainResultPayload[] = results.map(result => ({
+            chainId: typeof result.chainId === 'string' ? 0 : result.chainId, // Convert Solana string IDs to 0 for now
+            chainName: result.name,
+            txLatencies: result.txLatencies,
+            averageLatency: result.averageLatency || 0,
+            totalLatency: result.totalLatency || 0,
+            status: result.status,
+            position: result.position,
+          }));
+
+          const payload: RaceSessionPayload = {
+            title: `Chain Derby Race - ${new Date().toISOString()}`,
+            walletAddress: account.address,
+            transactionCount,
+            status: 'completed',
+            city: geo.city,
+            region: geo.region,
+            country: geo.country,
+            results: chainResults,
+          };
+
+          await saveRaceResults(payload);
+        } catch (error) {
+          // Silently handle API failures - don't impact user experience
+        }
+      }
+    };
+
+    // Don't await this - let it run in background without blocking
+    saveResults();
+  }, [status, results, account, transactionCount]);
 
   // Create a wallet client - defined at hook level to avoid ESLint warnings
   const createClient = (chain: Chain) => {

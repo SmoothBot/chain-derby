@@ -19,13 +19,14 @@ export function FundingPhase() {
       // Solana balance formatting (lamports to SOL)
       const solValue = Number(balance) / LAMPORTS_PER_SOL;
       if (isMobile) {
-        if (solValue === 0) return '0';
+        if (solValue === 0) return '0.0';
         if (solValue < 0.0001) {
           return solValue.toExponential(2);
         }
         return solValue.toFixed(4).replace(/\.?0+$/, '');
       }
       // Desktop formatting
+      if (solValue === 0) return '0.0';
       if (solValue < 0.000001) {
         return solValue.toExponential(3);
       }
@@ -35,7 +36,7 @@ export function FundingPhase() {
       const etherValue = formatEther(balance);
       if (isMobile) {
         const num = parseFloat(etherValue);
-        if (num === 0) return '0';
+        if (num === 0) return '0.0';
         if (num < 0.0001) {
           return num.toExponential(2);
         }
@@ -43,6 +44,7 @@ export function FundingPhase() {
       }
       // Desktop formatting
       const num = parseFloat(etherValue);
+      if (num === 0) return '0.0';
       if (num < 0.000001) {
         return num.toExponential(3);
       }

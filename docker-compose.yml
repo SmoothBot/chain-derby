@@ -1,0 +1,74 @@
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: chain_derby_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chain_derby
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: chain_derby_pgadmin_dev
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@chainderbydemo.com
+      PGADMIN_DEFAULT_PASSWORD: pgadmin_password
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json
+    depends_on:
+      - postgres
+
+  # Grafana for data visualization
+  grafana:
+    build:
+      context: ./packages/grafana
+      dockerfile: Dockerfile
+    container_name: chain_derby_grafana_dev
+    restart: unless-stopped
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: chain_derby
+      DATABASE_SSL_MODE: disable
+      GF_SERVER_ROOT_URL: "https://grafana-derby.fly.dev/"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_NAME: "Main Org."
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_DISABLE_SIGNOUT_MENU: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_SERVER_DOMAIN: "grafana-derby.fly.dev/"
+      GF_SERVER_PROTOCOL: "http"
+      GF_SERVER_HTTP_PORT: "3000"
+      GF_SERVER_ENFORCE_DOMAIN: "false"
+    ports:
+      - "3002:3000"
+    volumes:
+      - grafana_dev_data:/var/lib/grafana
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_dev_data:
+  grafana_dev_data:
+  redis_dev_data:

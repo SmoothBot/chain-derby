@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Chain Derby PostgreSQL",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "chain_derby",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    }
+  }
+}

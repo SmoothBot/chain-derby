@@ -30,16 +30,17 @@
   "dependencies": {
     "@koa/cors": "^5.0.0",
     "@koa/router": "^12.0.1",
+    "dotenv": "^16.4.5",
     "drizzle-orm": "^0.30.0",
     "koa": "^2.15.1",
     "koa-bodyparser": "^4.4.1",
     "koa-helmet": "^7.0.2",
     "koa-logger": "^3.2.1",
     "pg": "^8.11.3",
-    "dotenv": "^16.4.5",
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@flydotio/dockerfile": "^0.7.10",
     "@types/jest": "^29.5.12",
     "@types/koa": "^2.15.0",
     "@types/koa__cors": "^5.0.0",

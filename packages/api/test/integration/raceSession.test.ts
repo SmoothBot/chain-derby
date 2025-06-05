@@ -36,6 +36,20 @@ jest.mock('../../src/models/chainResult.model', () => {
   };
 });
 
+jest.mock('../../src/models/transactionDetail.model', () => {
+  return {
+    createTransactionDetailSchema: {
+      parse: jest.fn((data) => data),
+    },
+    TransactionDetailModel: {
+      create: jest.fn(),
+      createMany: jest.fn().mockResolvedValue([]),
+      getByChainResultId: jest.fn(),
+      deleteByChainResultId: jest.fn(),
+    },
+  };
+});
+
 describe('Race Session API Endpoints', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -120,31 +134,38 @@ describe('Race Session API Endpoints', () => {
   });
 
   describe('POST /api/race-sessions', () => {
-    it('should create a new race session with results', async () => {
-      const mockSessionInput = {
-        title: 'Test Race',
+    it('should create a new race session with results and geo data', async () => {
+      const mockPayload = {
+        title: 'Chain Derby Race - 2024-01-01T00:00:00.000Z',
         walletAddress: '0x123456789abcdef',
         transactionCount: 10,
+        status: 'completed' as const,
+        city: 'San Francisco',
+        region: 'California',
+        country: 'United States',
+        results: [
+          {
+            chainId: 1,
+            chainName: 'Ethereum',
+            txLatencies: [100, 150, 120],
+            averageLatency: 123,
+            totalLatency: 370,
+            status: 'success',
+            position: 1,
+          },
+        ],
       };
-
-      const mockResultsInput = [
-        {
-          chainId: 1,
-          chainName: 'Ethereum',
-          status: 'success',
-          position: 1,
-          txCompleted: 10,
-          txTotal: 10,
-          txLatencies: [100, 150, 120],
-          averageLatency: 123,
-          totalLatency: 1230,
-        },
-      ];
 
       const mockCreatedSession = {
         id: 1,
         sessionId: '550e8400-e29b-41d4-a716-446655440000',
-        ...mockSessionInput,
+        title: mockPayload.title,
+        walletAddress: mockPayload.walletAddress,
+        transactionCount: mockPayload.transactionCount,
+        status: mockPayload.status,
+        country: mockPayload.country,
+        region: mockPayload.region,
+        city: mockPayload.city,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -153,28 +174,38 @@ describe('Race Session API Endpoints', () => {
         {
           id: 1,
           sessionId: '550e8400-e29b-41d4-a716-446655440000',
-          ...mockResultsInput[0],
+          chainId: 1,
+          chainName: 'Ethereum',
+          status: 'success',
+          position: 1,
+          completed: true,
+          txCompleted: 3,
+          txTotal: 3,
+          txLatencies: [100, 150, 120],
+          averageLatency: 123,
+          totalLatency: 370,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
       ];
 
       (RaceSessionModel.create as jest.Mock).mockResolvedValueOnce(mockCreatedSession);
-      (require('../../src/models/chainResult.model').ChainResultModel.createMany as jest.Mock)
-        .mockResolvedValueOnce(mockCreatedResults);
+      (require('../../src/models/chainResult.model').ChainResultModel.create as jest.Mock)
+        .mockResolvedValueOnce(mockCreatedResults[0]);
+      (require('../../src/models/transactionDetail.model').TransactionDetailModel.createMany as jest.Mock)
+        .mockResolvedValueOnce([]);
 
       const response = await request(app.callback())
         .post('/api/race-sessions')
-        .send({
-          session: mockSessionInput,
-          results: mockResultsInput,
-        })
+        .send(mockPayload)
         .set('x-api-key', process.env.API_KEY as string);
 
       expect(response.status).toBe(201);
       expect(response.body.success).toBe(true);
       expect(response.body.data).toHaveProperty('sessionId');
       expect(response.body.data.results).toHaveLength(1);
+      expect(response.body.data.country).toBe('United States');
+      expect(response.body.data.city).toBe('San Francisco');
     });
   });
 

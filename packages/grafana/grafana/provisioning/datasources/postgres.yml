@@ -1,0 +1,21 @@
+apiVersion: 1
+
+datasources:
+  - name: PostgreSQL
+    type: postgres
+    uid: P214B5B846CF3925F
+    url: DATABASE_HOST_PLACEHOLDER:DATABASE_PORT_PLACEHOLDER
+    user: DATABASE_USER_PLACEHOLDER
+    secureJsonData:
+      password: DATABASE_PASSWORD_PLACEHOLDER
+    database: DATABASE_NAME_PLACEHOLDER
+    jsonData:
+      sslmode: 'DATABASE_SSL_MODE_PLACEHOLDER'
+      maxOpenConns: 10
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+      postgresVersion: 1200
+      timescaledb: false
+    isDefault: true
+    editable: false
+    access: proxy

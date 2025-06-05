@@ -10,11 +10,10 @@ export const createRaceSessionSchema = z.object({
   walletAddress: z.string().min(1).max(42),
   transactionCount: z.number().int().min(1),
   status: z.string().optional(),
-  // Session information
-  ipAddress: z.string().max(45).optional(),
-  country: z.string().max(50).optional(),
+  // Location information (required, passed from client)
+  country: z.string().max(50),
+  city: z.string().max(100),
   region: z.string().max(100).optional(),
-  city: z.string().max(100).optional(),
   coordinates: z.string().max(50).optional(),
   isp: z.string().max(200).optional(),
   timezone: z.string().max(50).optional(),
@@ -47,8 +46,7 @@ export class RaceSessionModel {
           walletAddress: data.walletAddress,
           transactionCount: data.transactionCount,
           status: data.status || 'completed',
-          // Session information
-          ipAddress: data.ipAddress,
+          // Location information (from client)
           country: data.country,
           region: data.region,
           city: data.city,
@@ -65,7 +63,6 @@ export class RaceSessionModel {
           walletAddress: raceSessions.walletAddress,
           transactionCount: raceSessions.transactionCount,
           status: raceSessions.status,
-          ipAddress: raceSessions.ipAddress,
           country: raceSessions.country,
           region: raceSessions.region,
           city: raceSessions.city,

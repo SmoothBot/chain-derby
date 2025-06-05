@@ -25,8 +25,6 @@ export const raceSessions = pgTable('race_sessions', {
   transactionCount: integer('transaction_count').notNull(),
   // Race status (completed, abandoned, etc.)
   status: varchar('status', { length: 50 }).notNull().default('completed'),
-  // IP Address information
-  ipAddress: varchar('ip_address', { length: 45 }),
   // User's country
   country: varchar('country', { length: 50 }),
   // User's region (state/province)
@@ -101,6 +99,10 @@ export const transactionDetails = pgTable('transaction_details', {
   blockNumber: integer('block_number'),
   // Raw transaction data for reference
   rawData: json('raw_data'),
+  // Location information (copied from race session)
+  country: varchar('country', { length: 50 }),
+  region: varchar('region', { length: 100 }),
+  city: varchar('city', { length: 100 }),
   // Timestamp when record was created
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

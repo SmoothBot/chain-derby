@@ -6,7 +6,7 @@ import {
   raceSessionFilterSchema,
 } from '../models/raceSession.model';
 import { ChainResultModel, createChainResultSchema } from '../models/chainResult.model';
-import { getIpInfo, extractLocationData } from '../services/ipInfo.service';
+import { TransactionDetailModel, createTransactionDetailSchema } from '../models/transactionDetail.model';
 
 export class RaceSessionController {
   /**
@@ -14,58 +14,85 @@ export class RaceSessionController {
    */
   static async create(ctx: Context) {
     try {
-      // Extract data from the request body
-      const { session, results } = ctx.request.body as {
-        session: any;
-        results: any[];
+      // Extract data from the request body - expecting the new format from frontend
+      const payload = ctx.request.body as {
+        title: string;
+        walletAddress: string;
+        transactionCount: number;
+        status: 'completed';
+        city?: string;
+        region?: string;
+        country?: string;
+        results: Array<{
+          chainId: number;
+          chainName: string;
+          txLatencies: number[];
+          averageLatency: number;
+          totalLatency: number;
+          status: string;
+          position?: number;
+        }>;
       };
 
-      // Get the request IP address
-      const ipAddress = ctx.request.ip || ctx.request.ips?.[0] || '127.0.0.1';
+      // Add browser session from headers
       const browserSession = ctx.request.headers['x-session-id'] as string || '';
       
-      // Fetch IP information if not already provided
-      let sessionWithIpInfo = { ...session };
-      
-      if (!session.ipAddress) {
-        try {
-          // Get IP information from ipinfo.io
-          const ipInfo = await getIpInfo(ipAddress);
-          const locationData = extractLocationData(ipInfo);
-          
-          // Merge with session data
-          sessionWithIpInfo = {
-            ...sessionWithIpInfo,
-            ...locationData,
-            browserSession,
-          };
-        } catch (ipError) {
-          console.error('Error fetching IP info:', ipError);
-          // Continue with just the IP address
-          sessionWithIpInfo.ipAddress = ipAddress;
-          sessionWithIpInfo.browserSession = browserSession;
-        }
-      }
+      // Create session data from payload
+      const sessionData = {
+        title: payload.title,
+        walletAddress: payload.walletAddress,
+        transactionCount: payload.transactionCount,
+        status: payload.status,
+        country: payload.country || '',
+        region: payload.region,
+        city: payload.city || '',
+        browserSession,
+      };
 
       // Validate session data
-      const validatedSession = createRaceSessionSchema.parse(sessionWithIpInfo);
+      const validatedSession = createRaceSessionSchema.parse(sessionData);
       
       // Create the race session
       const createdSession = await RaceSessionModel.create(validatedSession);
       
-      // If there are chain results, validate and create them
-      if (Array.isArray(results) && results.length > 0) {
-        // Validate each result and add the session ID
-        const validatedResults = results.map((result) => {
-          const validatedResult = createChainResultSchema.parse({
-            ...result,
+      // If there are chain results, process them
+      if (Array.isArray(payload.results) && payload.results.length > 0) {
+        const createdResults = [];
+        
+        for (const result of payload.results) {
+          // Create chain result
+          const chainResultData = {
             sessionId: createdSession.sessionId,
-          });
-          return validatedResult;
-        });
+            chainId: result.chainId,
+            chainName: result.chainName,
+            status: result.status,
+            position: result.position,
+            completed: true, // All results from frontend are completed
+            txCompleted: result.txLatencies.length,
+            txTotal: result.txLatencies.length,
+            txLatencies: result.txLatencies,
+            averageLatency: result.averageLatency,
+            totalLatency: result.totalLatency,
+          };
 
-        // Create all chain results
-        const createdResults = await ChainResultModel.createMany(validatedResults);
+          const validatedChainResult = createChainResultSchema.parse(chainResultData);
+          const createdChainResult = await ChainResultModel.create(validatedChainResult);
+          
+          // Create transaction details for each transaction latency
+          const transactionDetails = result.txLatencies.map((latency, index) => ({
+            chainResultId: createdChainResult.id,
+            txIndex: index,
+            latency: latency,
+            country: payload.country,
+            region: payload.region,
+            city: payload.city,
+          }));
+
+          // Create all transaction details for this chain
+          await TransactionDetailModel.createMany(transactionDetails);
+          
+          createdResults.push(createdChainResult);
+        }
         
         // Return the created session with its results
         ctx.status = 201;

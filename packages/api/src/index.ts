@@ -24,6 +24,19 @@ app.use(bodyParser());
 app.use(logger());
 app.use(errorHandler);
 
+// Health check endpoint (outside /api prefix)
+app.use(async (ctx, next) => {
+  if (ctx.path === '/health') {
+    ctx.body = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || '0.1.0',
+    };
+    return;
+  }
+  await next();
+});
+
 // Register routes
 registerRoutes(router);
 app.use(router.routes());
