@@ -69,7 +69,7 @@ const baseSepolia_ = {
 export const evmChains = [
   riseTestnet_,
   monadTestnet_,
-  // megaEthTestnet,
+  megaEthTestnet,
   sonicMainnet,
   baseSepolia_,
 ];
