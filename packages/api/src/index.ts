@@ -52,8 +52,9 @@ app.on('error', (err, ctx) => {
 
 // Start server if not imported for testing
 if (!module.parent) {
-  const server = app.listen(config.port, () => {
-    console.log(`🚀 Server running on http://localhost:${config.port}`);
+  const server = app.listen(config.port, '0.0.0.0', () => {
+    console.log(`🚀 Server running on http://0.0.0.0:${config.port}`);
+    console.log(`🌐 Also accessible via http://localhost:${config.port}`);
     console.log(`Environment: ${config.nodeEnv}`);
   });
 

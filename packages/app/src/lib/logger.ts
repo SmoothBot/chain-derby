@@ -10,7 +10,7 @@ interface LogData {
 }
 
 class Logger {
-  private isDevelopment = process.env.NODE_ENV === 'development';
+  private isDevelopment = process.env.NEXT_PUBLIC_NODE_ENV === 'development';
 
   private shouldLog(level: LogLevel): boolean {
     // In production, only log warnings and errors

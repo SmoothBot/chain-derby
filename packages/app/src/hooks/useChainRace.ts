@@ -332,7 +332,20 @@ export function useChainRace() {
     const saveResults = async () => {
       if (status === 'finished' && results.length > 0 && account) {
         try {
+          const isDevelopment = process.env.NEXT_PUBLIC_NODE_ENV === 'development';
+          
+          if (isDevelopment) {
+            console.log('🏁 [Chain Derby] Race finished! Preparing to save results...');
+            console.log('🔍 [Chain Derby] Results data:', results);
+            console.log('👤 [Chain Derby] Account:', account?.address);
+            console.log('🔢 [Chain Derby] Transaction count:', transactionCount);
+          }
+
           const geo = await getGeo();
+          
+          if (isDevelopment) {
+            console.log('🌍 [Chain Derby] Geo location:', geo);
+          }
           
           // Convert results to the API payload format
           const chainResults: ChainResultPayload[] = results.map(result => ({
@@ -345,6 +358,10 @@ export function useChainRace() {
             position: result.position,
           }));
 
+          if (isDevelopment) {
+            console.log('⛓️ [Chain Derby] Processed chain results:', chainResults);
+          }
+
           const payload: RaceSessionPayload = {
             title: `Chain Derby Race - ${new Date().toISOString()}`,
             walletAddress: account.address,
@@ -356,8 +373,22 @@ export function useChainRace() {
             results: chainResults,
           };
 
+          if (isDevelopment) {
+            console.log('📋 [Chain Derby] Final payload prepared:', payload);
+            console.log('🚀 [Chain Derby] Initiating API call...');
+          }
+
           await saveRaceResults(payload);
+          
+          if (isDevelopment) {
+            console.log('🎉 [Chain Derby] Race results saved successfully!');
+          }
         } catch (error) {
+          const isDevelopment = process.env.NEXT_PUBLIC_NODE_ENV === 'development';
+          
+          if (isDevelopment) {
+            console.error('❌ [Chain Derby] Failed to save race results:', error);
+          }
           // Silently handle API failures - don't impact user experience
         }
       }

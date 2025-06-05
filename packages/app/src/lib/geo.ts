@@ -36,7 +36,7 @@ export async function getGeo(): Promise<{city?:string; region?:string; country?:
       region: info.region || undefined, 
       country: info.country || undefined 
     };
-  } catch (error) {
+  } catch {
     return {}; // Return empty object if geo fails
   }
 }
