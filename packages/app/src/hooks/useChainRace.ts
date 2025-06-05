@@ -332,7 +332,7 @@ export function useChainRace() {
     const saveResults = async () => {
       if (status === 'finished' && results.length > 0 && account) {
         try {
-          const isDevelopment = process.env.NEXT_PUBLIC_NODE_ENV === 'development';
+          const isDevelopment = process.env.NODE_ENV === 'development';
           
           if (isDevelopment) {
             console.log('🏁 [Chain Derby] Race finished! Preparing to save results...');
@@ -384,7 +384,7 @@ export function useChainRace() {
             console.log('🎉 [Chain Derby] Race results saved successfully!');
           }
         } catch (error) {
-          const isDevelopment = process.env.NEXT_PUBLIC_NODE_ENV === 'development';
+          const isDevelopment = process.env.NODE_ENV === 'development';
           
           if (isDevelopment) {
             console.error('❌ [Chain Derby] Failed to save race results:', error);

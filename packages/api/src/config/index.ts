@@ -26,7 +26,7 @@ const config: Config = {
     url: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/chain_derby'
   },
   security: {
-    corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000,https://www.chainderby.fun,https://chainderby.fun',
     apiKey: process.env.API_KEY || 'development_api_key',
   },
   ipInfo: {

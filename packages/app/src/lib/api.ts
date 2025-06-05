@@ -3,7 +3,7 @@ import { RaceSessionPayload } from "@/hooks/useChainRace";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export async function saveRaceResults(payload: RaceSessionPayload): Promise<void> {
-  const isDevelopment = process.env.NEXT_PUBLIC_NODE_ENV === 'development';
+  const isDevelopment = process.env.NODE_ENV === 'development';
   
   if (isDevelopment) {
     console.log('🏎️ [Chain Derby API] Submitting race results to API...');

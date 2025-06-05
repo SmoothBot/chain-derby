@@ -17,7 +17,26 @@ const router = new Router({ prefix: '/api' });
 // Apply global middleware
 app.use(helmet());
 app.use(cors({
-  origin: config.security.corsOrigin,
+  origin: (ctx) => {
+    const allowedOrigins = config.security.corsOrigin.split(',').map(origin => origin.trim());
+    const requestOrigin = ctx.request.header.origin;
+    
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!requestOrigin) return '*';
+    
+    // Check if the request origin is in our allowed list
+    if (allowedOrigins.includes(requestOrigin)) {
+      return requestOrigin;
+    }
+    
+    // For development, allow localhost with any port
+    if (config.nodeEnv === 'development' && requestOrigin?.includes('localhost')) {
+      return requestOrigin;
+    }
+    
+    // Deny other origins by returning empty string (CORS will block)
+    return '';
+  },
   credentials: true,
 }));
 app.use(bodyParser());
