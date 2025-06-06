@@ -1,5 +1,5 @@
 import { Chain } from "viem";
-import { sonic, megaethTestnet, baseSepolia, monadTestnet, riseTestnet } from "viem/chains";
+import { sonicTestnet, megaethTestnet, baseSepolia, monadTestnet, riseTestnet } from "viem/chains";
 import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 
 export interface ChainConfig extends Chain {
@@ -18,7 +18,7 @@ function getRpcUrls(chain: Chain, url: string | undefined) {
   }
 }
 
-const riseTestnet_ = {
+const riseTestnetConf = {
   ...riseTestnet,
   rpcUrls: getRpcUrls(riseTestnet, process.env.NEXT_PUBLIC_RISE_TESTNET_RPC_URL),
   testnet: true,
@@ -28,7 +28,7 @@ const riseTestnet_ = {
 } as const as ChainConfig;
 
 // Monad Testnet
-const monadTestnet_ = {
+const monadTestnetConf = {
   ...monadTestnet,
   rpcUrls: getRpcUrls(monadTestnet, process.env.NEXT_PUBLIC_MONAD_TESTNET_RPC_URL),
   testnet: true,
@@ -38,7 +38,7 @@ const monadTestnet_ = {
 } as const as ChainConfig;
 
 // MegaETH Testnet
-const megaEthTestnet = {
+const megaethTestnetConf = {
   ...megaethTestnet,
   rpcUrls: getRpcUrls(megaethTestnet, process.env.NEXT_PUBLIC_MEGAETH_TESTNET_RPC_URL),
   color: "#8e8d8f", // Blue color for MegaETH
@@ -47,16 +47,26 @@ const megaEthTestnet = {
 } as const as ChainConfig;
 
 // Sonic Mainnet
-const sonicMainnet = {
-  ...sonic,
-  rpcUrls: getRpcUrls(sonic, process.env.NEXT_PUBLIC_SONIC_MAINNET_RPC_URL),
-  testnet: false,
+// const sonicMainnet = {
+//   ...sonic,
+//   rpcUrls: getRpcUrls(sonic, process.env.NEXT_PUBLIC_SONIC_MAINNET_RPC_URL),
+//   testnet: false,
+//   color: "#00AEE9", // Teal/Blue color for Sonic
+//   logo: "/logos/sonic.png",
+// } as const as ChainConfig;
+
+// Sonic Testnet
+const sonicTestnetConf = {
+  ...sonicTestnet,
+  // rpcUrls: getRpcUrls(sonicTestnet, process.env.NEXT_PUBLIC_SONIC_TESTNET_RPC_URL),
+  rpcUrls: getRpcUrls(sonicTestnet, 'https://rpc.blaze.soniclabs.com'),
+  testnet: true,
   color: "#00AEE9", // Teal/Blue color for Sonic
   logo: "/logos/sonic.png",
 } as const as ChainConfig;
 
 // Base Sepolia with preconf RPC
-const baseSepolia_ = {
+const baseTestnetConf = {
   ...baseSepolia,
   rpcUrls: getRpcUrls(baseSepolia, process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL),
   testnet: true,
@@ -67,11 +77,11 @@ const baseSepolia_ = {
 
 // Add the EVM chains we want to include in the race
 export const evmChains = [
-  riseTestnet_,
-  monadTestnet_,
-  megaEthTestnet,
-  sonicMainnet,
-  baseSepolia_,
+  riseTestnetConf,
+  monadTestnetConf,
+  megaethTestnetConf,
+  sonicTestnetConf,
+  baseTestnetConf,
 ];
 
 // All chains (EVM + Solana)
