@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createPublicClient, createWalletClient, http, type Hex, type Chain, TransactionReceipt } from "viem";
+import { createPublicClient, createWalletClient, http, type Hex, type Chain } from "viem";
 import { allChains, type AnyChainConfig } from "@/chain/networks";
 import { useEmbeddedWallet } from "./useEmbeddedWallet";
 import { useSolanaEmbeddedWallet } from "./useSolanaEmbeddedWallet";
-import { createSyncPublicClient, syncTransport } from "rise-shred-client";
 import { Connection, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import type { SolanaChainConfig } from "@/solana/config";
 import { getGeo } from "@/lib/geo";
@@ -444,6 +443,7 @@ export function useChainRace() {
             const client = createPublicClient({
               chain,
               transport: http(),
+              
             });
             
             // Run all required queries in parallel
@@ -622,186 +622,190 @@ export function useChainRace() {
             }) : null;
 
           // Run the specified number of transactions
-          for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
-            try {
-              // Skip if chain already had an error
-              const currentState = results.find(r => r.chainId === chainId);
-              if (currentState?.status === "error") {
-                break;
-              }
-              
-              let txHash: Hex;
-              let txLatency = 0; // Initialize txLatency to avoid reference error
-              const txStartTime = Date.now(); // Start time for this individual transaction
-              
-              // Get pre-fetched chain data including pre-signed transactions
-              // Using more specific fallback gas prices if chain data isn't available
-              const fallbackGasPrice = BigInt(
-                chain.id === 10143 ? 60000000000 : // Monad has higher gas requirements
-                chain.id === 8453 ? 2000000000 :   // Base mainnet
-                chain.id === 6342 ? 3000000000 :   // MegaETH 
-                chain.id === 17180 ? 1500000000 :  // Sonic
-                1000000000                         // Default fallback (1 gwei)
-              );
-              
-              const currentChainData = chainData.get(chainId) || {
-                nonce: 0,
-                gasPrice: fallbackGasPrice,
-                signedTransactions: []
-              };
+          const batchStartTime = Date.now();
+          
+          try {
+            // Get pre-fetched chain data including pre-signed transactions
+            // Using more specific fallback gas prices if chain data isn't available
+            const fallbackGasPrice = BigInt(
+              chain.id === 10143 ? 60000000000 : // Monad has higher gas requirements
+              chain.id === 8453 ? 2000000000 :   // Base mainnet
+              chain.id === 6342 ? 3000000000 :   // MegaETH 
+              chain.id === 17180 ? 1500000000 :  // Sonic
+              1000000000                         // Default fallback (1 gwei)
+            );
             
-            // Get the pre-signed transaction for this index
-            const hasPreSignedTx = currentChainData.signedTransactions && 
-                                  txIndex < currentChainData.signedTransactions.length &&
-                                  currentChainData.signedTransactions[txIndex] !== null;
+            const currentChainData = chainData.get(chainId) || {
+              nonce: 0,
+              gasPrice: fallbackGasPrice,
+              signedTransactions: []
+            };
+            
+            // Prepare all transactions for batching
+            const transactionsToSend: string[] = [];
+            const txHashes: Hex[] = [];
+            
+            // Collect all pre-signed transactions
+            for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
+              const hasPreSignedTx = currentChainData.signedTransactions && 
+                                    txIndex < currentChainData.signedTransactions.length &&
+                                    currentChainData.signedTransactions[txIndex] !== null;
                                    
-            // Use pre-signed transaction if available and not null
-            const signedTransaction = hasPreSignedTx
-              ? currentChainData.signedTransactions![txIndex]
-              : null;
+              const signedTransaction = hasPreSignedTx
+                ? currentChainData.signedTransactions![txIndex]
+                : null;
               
-            
-            if (chain.id === 11155931) {
-              // For RISE testnet, use the sync client
-              const RISESyncClient = createSyncPublicClient({
-                chain,
-                transport: syncTransport(chain.rpcUrls.default.http[0]),
-              });
-              
-              // Use pre-signed transaction if available, otherwise sign now
-              const txToSend = signedTransaction;
-              
-              
-              // Check if we have a valid transaction
-              if (!txToSend || typeof txToSend !== 'string') {
-                throw new Error(`Invalid transaction format for RISE tx #${txIndex}`);
+              if (!signedTransaction || typeof signedTransaction !== 'string' || !signedTransaction.startsWith('0x')) {
+                throw new Error(`Invalid transaction format for ${chain.name} tx #${txIndex}: ${typeof signedTransaction}`);
               }
               
-              // Send the transaction and get receipt in one call
-              const receipt = await RISESyncClient.sendRawTransactionSync(txToSend as `0x${string}`);
-              
-              // Verify receipt
-              if (!receipt || !receipt.transactionHash) {
-                throw new Error(`RISE sync transaction sent but no receipt returned for tx #${txIndex}`);
-              }
-              txHash = receipt.transactionHash;
-              // Calculate transaction latency for RISE
-              const txEndTime = Date.now();
-              txLatency = txEndTime - txStartTime; // Using outer txLatency variable here
-            } else if (chain.id === 6342) {
-              // For MegaETH testnet, use the custom realtime_sendRawTransaction method
-              
-              // Use pre-signed transaction if available, otherwise sign now
-              const txToSend = signedTransaction;
-              
-              // Check if we have a valid transaction
-              if (!txToSend || typeof txToSend !== 'string') {
-                throw new Error(`Invalid transaction format for MegaETH tx #${txIndex}`);
-              }
-              
-              // Explicitly verify the transaction is a valid string before sending
-              if (typeof txToSend !== 'string' || !txToSend.startsWith('0x')) {
-                throw new Error(`Invalid transaction format for MegaETH tx #${txIndex}: ${typeof txToSend}`);
-              }
-              
-              // Create a custom request to use the standard send transaction method
-              // MegaETH devs intended realtime_sendRawTransaction but it's not a standard method
-              const receipt = await publicClient!.request({
-                // @ts-expect-error - MegaETH custom method not in standard types
-                method: 'realtime_sendRawTransaction',
-                params: [txToSend as `0x${string}`]
-              }) as TransactionReceipt | null;
-              
-              // The result is the transaction hash directly
-              if (!receipt) {
-                throw new Error(`MegaETH transaction sent but no hash returned for tx #${txIndex}`);
-              }
-              
-              txHash = receipt.transactionHash as Hex;
-              
-              // Calculate transaction latency for MegaETH
-              const txEndTime = Date.now();
-              txLatency = txEndTime - txStartTime;
-            } else {
-              
-              // Use pre-signed transaction if available, otherwise sign now
-              const txToSend = signedTransaction;
-              
-              // Critical null safety check
-              if (!txToSend) {
-                throw new Error(`No transaction to send for ${chain.name} tx #${txIndex}`);
-              }
-              
-              
-              // Explicitly verify the transaction is a valid string before sending
-              if (typeof txToSend !== 'string' || !txToSend.startsWith('0x')) {
-                throw new Error(`Invalid transaction format for ${chain.name} tx #${txIndex}: ${typeof txToSend}`);
-              }
-              
-              // Normal path for non-Monad chains
-              // Send the raw transaction - wagmi v2 changed the API
-              txHash = await publicClient!.sendRawTransaction({
-                serializedTransaction: txToSend as `0x${string}`
-              });
-              
-              if (!txHash) {
-                throw new Error(`Transaction sent but no hash returned for ${chain.name} tx #${txIndex}`);
-              }
-              
+              transactionsToSend.push(signedTransaction);
             }
             
-            // Update result with transaction hash
+            if (chain.id === 11155931) {
+              // For RISE testnet, use batch eth_sendRawTransactionSync
+              const batchRequests = transactionsToSend.map((txToSend, index) => ({
+                method: 'eth_sendRawTransactionSync',
+                params: [txToSend],
+                id: index + 1,
+                jsonrpc: '2.0' as const
+              }));
+              
+              // Send batch request using fetch directly
+              const batchResponse = await fetch(chain.rpcUrls.default.http[0], {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(batchRequests),
+              });
+              
+              if (!batchResponse.ok) {
+                throw new Error(`RISE batch request failed: ${batchResponse.statusText}`);
+              }
+              
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const results = await batchResponse.json() as Array<{ result?: { transactionHash: Hex }; error?: any; id: number }>;
+              
+              // Process batch response
+              for (let i = 0; i < results.length; i++) {
+                const result = results[i];
+                if (result.error || !result.result?.transactionHash) {
+                  throw new Error(`RISE transaction ${i} failed: ${result.error?.message || 'No hash returned'}`);
+                }
+                txHashes.push(result.result.transactionHash);
+              }
+              
+            } else if (chain.id === 6342) {
+              // For MegaETH testnet, use direct fetch for batch requests
+              const batchRequests = transactionsToSend.map((txToSend, index) => ({
+                method: 'realtime_sendRawTransaction',
+                params: [txToSend],
+                id: index + 1,
+                jsonrpc: '2.0' as const
+              }));
+              
+              // Send batch request using fetch directly
+              const batchResponse = await fetch(chain.rpcUrls.default.http[0], {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(batchRequests),
+              });
+              
+              if (!batchResponse.ok) {
+                throw new Error(`MegaETH batch request failed: ${batchResponse.statusText}`);
+              }
+              
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const results = await batchResponse.json() as Array<{ result?: { transactionHash: Hex }; error?: any; id: number }>;
+              
+              // Process batch response
+              for (let i = 0; i < results.length; i++) {
+                const result = results[i];
+                if (result.error || !result.result?.transactionHash) {
+                  throw new Error(`MegaETH transaction ${i} failed: ${result.error?.message || 'No hash returned'}`);
+                }
+                txHashes.push(result.result.transactionHash);
+              }
+              
+            } else {
+              // Standard EVM chains - use batch sendRawTransaction
+              const batchRequests = transactionsToSend.map((txToSend, index) => ({
+                method: 'eth_sendRawTransaction',
+                params: [txToSend],
+                id: index + 1,
+                jsonrpc: '2.0' as const
+              }));
+              
+              // Send batch request
+              const batchResponse = await fetch(chain.rpcUrls.default.http[0], {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(batchRequests),
+              });
+              
+              if (!batchResponse.ok) {
+                throw new Error(`Batch request failed: ${batchResponse.statusText}`);
+              }
+              
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const results = await batchResponse.json() as Array<{ result?: Hex; error?: any; id: number }>;
+              
+              // Process batch response
+              for (let i = 0; i < results.length; i++) {
+                const result = results[i];
+                if (result.error || !result.result) {
+                  throw new Error(`Transaction ${i} failed: ${result.error?.message || 'No hash returned'}`);
+                }
+                txHashes.push(result.result);
+              }
+            }
+            
+            // Update results with all transaction hashes
             setResults(prev => 
               prev.map(r => 
                 r.chainId === chainId 
-                  ? { ...r, txHash } // Just store the latest hash
+                  ? { ...r, txHash: txHashes[txHashes.length - 1] } // Store the last hash as representative
                   : r
               )
             );
             
-            // For non-RISE and non-MegaETH chains, we need to wait for confirmation
-            if (chain.id !== 11155931 && chain.id !== 6342) {
-              // Wait for transaction to be confirmed
+            // Wait for the last transaction to be confirmed (represents batch completion)
+            if (txHashes.length > 0 && chain.id !== 11155931 && chain.id !== 6342) {
+              const lastTxHash = txHashes[txHashes.length - 1];
               await publicClient!.waitForTransactionReceipt({ 
                 pollingInterval: 0,
                 retryDelay: 0,
-                hash: txHash,
+                hash: lastTxHash,
                 timeout: 60_000, // 60 seconds timeout
               });
-              
-              // Calculate total transaction latency from start to confirmation
-              const txEndTime = Date.now();
-              txLatency = txEndTime - txStartTime;
             }
-              
-            // Transaction confirmed, update completed count and track latencies for all chains
+            
+            // Calculate batch completion time
+            const batchEndTime = Date.now();
+            const batchLatency = batchEndTime - batchStartTime;
+            
+            // Update results with batch completion
             setResults((prev) => {
               const updatedResults = prev.map(r => {
                 if (r.chainId === chainId) {
-                  // Add this transaction's latency to the array
-                  const newLatencies = [...r.txLatencies, txLatency];
+                  // For batch processing, we consider all transactions completed at once
+                  // Distribute the batch latency evenly across transactions for reporting
+                  const avgTxLatency = Math.round(batchLatency / transactionCount);
+                  const newLatencies = Array(transactionCount).fill(avgTxLatency);
                   
-                  const txCompleted = r.txCompleted + 1;
-                  const allTxCompleted = txCompleted >= transactionCount;
-                  
-                  // Calculate total and average latency if we have latencies
-                  const totalLatency = newLatencies.length > 0
-                    ? newLatencies.reduce((sum, val) => sum + val, 0)
-                    : undefined;
-                    
-                  const averageLatency = totalLatency !== undefined
-                    ? Math.round(totalLatency / newLatencies.length)
-                    : undefined;
-                  
-                  
-                  // Ensure status is one of the allowed values from RaceResult.status type
-                  const newStatus: "pending" | "racing" | "success" | "error" = 
-                    allTxCompleted ? "success" : "racing";
+                  const txCompleted = transactionCount; // All transactions completed
+                  const totalLatency = batchLatency;
+                  const averageLatency = avgTxLatency;
                   
                   return { 
                     ...r, 
                     txCompleted,
-                    status: newStatus,
+                    status: "success" as const,
                     txLatencies: newLatencies,
                     averageLatency,
                     totalLatency
@@ -827,14 +831,14 @@ export function useChainRace() {
               
               return updatedResults;
             });
+            
           } catch (error) {
-            console.error(`Race error for chain ${chain.id}, tx #${txIndex}:`, error);
+            console.error(`Batch race error for chain ${chain.id}:`, error);
             
             // Provide a more user-friendly error message
-            let errorMessage = "Transaction failed";
+            let errorMessage = "Batch transaction failed";
             
             if (error instanceof Error) {
-              // Extract the most useful part of the error message
               const fullMessage = error.message;
               
               if (fullMessage.includes("Invalid params")) {
@@ -863,10 +867,7 @@ export function useChainRace() {
                   : r
               )
             );
-            break; // Stop sending transactions for this chain if there's an error
           }
-        }
-        
         } else if (isSolanaChain(chain)) {
           // Solana chain transaction processing
           const currentChainData = chainData.get(chainId);
