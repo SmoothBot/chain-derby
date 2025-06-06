@@ -6,7 +6,7 @@ import { allChains, type AnyChainConfig } from "@/chain/networks";
 import { useEmbeddedWallet } from "./useEmbeddedWallet";
 import { useSolanaEmbeddedWallet } from "./useSolanaEmbeddedWallet";
 import { createSyncPublicClient, syncTransport } from "rise-shred-client";
-import { Connection, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
+import { Connection, SystemProgram, Transaction } from "@solana/web3.js";
 import type { SolanaChainConfig } from "@/solana/config";
 import { getGeo } from "@/lib/geo";
 import { saveRaceResults } from "@/lib/api";
@@ -634,6 +634,8 @@ export function useChainRace() {
               let txLatency = 0; // Initialize txLatency to avoid reference error
               const txStartTime = Date.now(); // Start time for this individual transaction
               
+              // Note: All chains measure only raw transaction send time for fair comparison
+              
               // Get pre-fetched chain data including pre-signed transactions
               // Using more specific fallback gas prices if chain data isn't available
               const fallbackGasPrice = BigInt(
@@ -748,6 +750,9 @@ export function useChainRace() {
                 throw new Error(`Transaction sent but no hash returned for ${chain.name} tx #${txIndex}`);
               }
               
+              // Calculate transaction latency immediately after sending
+              const txEndTime = Date.now();
+              txLatency = txEndTime - txStartTime;
             }
             
             // Update result with transaction hash
@@ -758,21 +763,6 @@ export function useChainRace() {
                   : r
               )
             );
-            
-            // For non-RISE and non-MegaETH chains, we need to wait for confirmation
-            if (chain.id !== 11155931 && chain.id !== 6342) {
-              // Wait for transaction to be confirmed
-              await publicClient!.waitForTransactionReceipt({ 
-                pollingInterval: 0,
-                retryDelay: 0,
-                hash: txHash,
-                timeout: 60_000, // 60 seconds timeout
-              });
-              
-              // Calculate total transaction latency from start to confirmation
-              const txEndTime = Date.now();
-              txLatency = txEndTime - txStartTime;
-            }
               
             // Transaction confirmed, update completed count and track latencies for all chains
             setResults((prev) => {
@@ -897,17 +887,24 @@ export function useChainRace() {
                 })
               );
               
-              const signature = await sendAndConfirmTransaction(
-                currentChainData.connection,
-                transaction,
-                [solanaKeypair],
+              // Get recent blockhash
+              const { blockhash } = await currentChainData.connection.getLatestBlockhash();
+              transaction.recentBlockhash = blockhash;
+              transaction.feePayer = solanaKeypair.publicKey;
+              
+              // Sign the transaction
+              transaction.sign(solanaKeypair);
+              
+              // Send the transaction without waiting for confirmation
+              const signature = await currentChainData.connection.sendRawTransaction(
+                transaction.serialize(),
                 {
-                  commitment: chain.commitment,
+                  skipPreflight: true,
                   preflightCommitment: chain.commitment,
                 }
               );
               
-              // Calculate transaction latency
+              // Calculate transaction latency immediately after sending
               const txEndTime = Date.now();
               txLatency = txEndTime - txStartTime;
               
