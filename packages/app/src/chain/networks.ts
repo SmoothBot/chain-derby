@@ -1,4 +1,4 @@
-import { Chain } from "viem";
+import { Chain, defineChain } from "viem";
 import { sonic, megaethTestnet, baseSepolia, monadTestnet, riseTestnet } from "viem/chains";
 import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 
@@ -46,13 +46,41 @@ const megaEthTestnet = {
   faucetUrl: "https://testnet.megaeth.com/",
 } as const as ChainConfig;
 
-// Sonic Mainnet
-const sonicMainnet = {
-  ...sonic,
-  rpcUrls: getRpcUrls(sonic, process.env.NEXT_PUBLIC_SONIC_MAINNET_RPC_URL),
-  testnet: false,
-  color: "#00AEE9", // Teal/Blue color for Sonic
+const sonicBlaze = {
+  ...defineChain({
+    name: "Sonic Blaze",
+    chainNamespace: "eip155",
+    caipNetworkId: "eip155:57054",
+    id: 57054,
+    nativeCurrency: {
+      name: "Sonic Blaze",
+      symbol: "bS",
+      decimals: 18
+    },
+    assets: {
+      imageId: "sonic-blaze",
+      imageUrl: "https://images.blockscan.com/chain-logos/sonic.svg",
+      iconUrl: "https://images.blockscan.com/chain-logos/sonic.svg"
+    },
+    blockExplorers: {
+      default: {
+        name: "Sonic Blaze Explorer",
+        url: process.env.NEXT_PUBLIC_BLAZE_EXPLORER_URL || "https://testnet.sonicscan.org",
+        apiUrl: process.env.NEXT_PUBLIC_BLAZE_API_URL || "https://api.testnet.sonicscan.org",
+        iconUrl: "https://explorer.blaze.soniclabs.com/favicon.ico"
+      }
+    },
+    rpcUrls: {
+      default: {
+        http: [process.env.NEXT_PUBLIC_BLAZE_RPC_URL || "https://rpc.blaze.soniclabs.com"]
+      }
+    }
+  }),
+  testnet: true,
+  color: "#00AEE9",
   logo: "/logos/sonic.png",
+
+  faucetUrl: "https://testnet.soniclabs.com/account"
 } as const as ChainConfig;
 
 // Base Sepolia with preconf RPC
@@ -66,13 +94,7 @@ const baseSepolia_ = {
 } as const as ChainConfig;
 
 // Add the EVM chains we want to include in the race
-export const evmChains = [
-  riseTestnet_,
-  monadTestnet_,
-  megaEthTestnet,
-  sonicMainnet,
-  baseSepolia_,
-];
+export const evmChains = [riseTestnet_, monadTestnet_, megaEthTestnet, sonicBlaze, baseSepolia_];
 
 // All chains (EVM + Solana)
 export const allChains = [...evmChains, ...solanaChains];
