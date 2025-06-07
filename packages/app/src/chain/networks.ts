@@ -1,5 +1,5 @@
 import { Chain, defineChain } from "viem";
-import { sonic, megaethTestnet, baseSepolia, monadTestnet, riseTestnet } from "viem/chains";
+import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet } from "viem/chains";
 import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 
 export interface ChainConfig extends Chain {
