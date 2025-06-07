@@ -97,7 +97,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={clsx(fkDisplay.variable, fkGrotesk.variable, "font-sans")}
       >

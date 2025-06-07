@@ -763,8 +763,8 @@ export function useChainRace() {
             if (chain.id !== 11155931 && chain.id !== 6342) {
               // Wait for transaction to be confirmed
               await publicClient!.waitForTransactionReceipt({ 
-                pollingInterval: 0,
-                retryDelay: 0,
+                pollingInterval: 1, // 1ms
+                retryDelay: 1, // 1ms
                 hash: txHash,
                 timeout: 60_000, // 60 seconds timeout
               });
