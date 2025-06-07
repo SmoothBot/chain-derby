@@ -13,7 +13,7 @@ export function FundingPhase() {
   const { account, balances, checkBalances, isLoadingBalances, selectedChains, setSelectedChains } = useChainRaceContext();
   const isMobile = useIsMobile();
   
-  // Format balance for display - handle both EVM and Solana
+  // Format balance for display - handle EVM, Solana, and Fuel
   const formatBalance = (balance: bigint, chainId: number | string) => {
     if (typeof chainId === 'string' && chainId.includes('solana')) {
       // Solana balance formatting (lamports to SOL)
@@ -31,6 +31,22 @@ export function FundingPhase() {
         return solValue.toExponential(3);
       }
       return solValue.toFixed(6).replace(/\.?0+$/, '');
+    } else if (chainId === '0' || chainId === '9889') {
+      // Fuel balance formatting (9 decimals)
+      const ethValue = Number(balance) / 1e9; // Convert from 9 decimals
+      if (isMobile) {
+        if (ethValue === 0) return '0.0';
+        if (ethValue < 0.0001) {
+          return ethValue.toExponential(2);
+        }
+        return ethValue.toFixed(4).replace(/\.?0+$/, '');
+      }
+      // Desktop formatting
+      if (ethValue === 0) return '0.0';
+      if (ethValue < 0.000001) {
+        return ethValue.toExponential(3);
+      }
+      return ethValue.toFixed(6).replace(/\.?0+$/, '');
     } else {
       // EVM balance formatting (wei to ETH)
       const etherValue = formatEther(balance);
