@@ -22,6 +22,7 @@ export interface FuelChainConfig {
   color: string;
   logo: string;
   faucetUrl?: string;
+  layer: 'L1' | 'L2'; // Layer classification
 }
 
 // Fuel Testnet
@@ -46,12 +47,14 @@ export const fuelTestnet: FuelChainConfig = {
   color: "#00F58C", // Fuel's brand color
   logo: "/logos/fuel.png",
   faucetUrl: "https://faucet-testnet.fuel.network/",
+  layer: 'L2' as const,
 };
 
 // Export all Fuel chains
 export const fuelChains = [fuelTestnet];
 
 // Helper function to check if a chain is a Fuel chain
-export function isFuelChain(chain: any): chain is FuelChainConfig {
-  return chain.id === 'fuel-testnet';
+export function isFuelChain(chain: unknown): chain is FuelChainConfig {
+  return typeof chain === 'object' && chain !== null && 'id' in chain && 
+         (chain.id === '0' || chain.id === '9889'); // testnet and mainnet
 }

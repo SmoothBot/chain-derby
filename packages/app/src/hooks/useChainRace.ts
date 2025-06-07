@@ -206,6 +206,8 @@ export function useChainRace() {
       if (layerFilter !== 'Both') {
         if (isEvmChain(chain)) {
           if (chain.layer !== layerFilter) return false;
+        } else if (isFuelChain(chain)) {
+          if (chain.layer !== layerFilter) return false;
         } else {
           // For Solana chains, we'll consider them as L1 for filtering purposes
           if (layerFilter !== 'L1') return false;
@@ -214,6 +216,10 @@ export function useChainRace() {
       
       // Network filter (mainnet vs testnet) - no "Both" option
       if (isEvmChain(chain)) {
+        const isTestnet = chain.testnet;
+        if (networkFilter === 'Testnet' && !isTestnet) return false;
+        if (networkFilter === 'Mainnet' && isTestnet) return false;
+      } else if (isFuelChain(chain)) {
         const isTestnet = chain.testnet;
         if (networkFilter === 'Testnet' && !isTestnet) return false;
         if (networkFilter === 'Mainnet' && isTestnet) return false;

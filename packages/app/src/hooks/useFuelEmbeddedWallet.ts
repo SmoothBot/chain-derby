@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Provider, Wallet, WalletUnlocked } from "fuels";
+import { Wallet, WalletUnlocked } from "fuels";
 // import { fuelTestnet } from "@/fuel/config";
 
 interface FuelWalletState {
