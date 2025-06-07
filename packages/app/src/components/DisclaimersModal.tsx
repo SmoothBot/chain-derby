@@ -39,7 +39,7 @@ export function DisclaimersButton() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-6 py-4">
+          <div className="space-y-6 py-4 max-h-200 overflow-y-auto pr-2">
             {/* Purpose Section */}
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-foreground">Purpose</h3>
@@ -105,7 +105,7 @@ export function DisclaimersButton() {
 
           <DialogFooter>
             <Button onClick={() => setIsOpen(false)}>
-              I Understand
+              Nice one
             </Button>
           </DialogFooter>
         </DialogContent>
