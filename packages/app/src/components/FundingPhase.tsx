@@ -1,7 +1,7 @@
 "use client";
 
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui";
-import { allChains } from "@/chain/networks";
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Badge } from "@/components/ui";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { useIsMobile } from "@/hooks/useMobile";
@@ -10,7 +10,7 @@ import { formatEther } from "viem";
 import Image from "next/image";
 
 export function FundingPhase() {
-  const { account, balances, checkBalances, isLoadingBalances, selectedChains, setSelectedChains } = useChainRaceContext();
+  const { account, balances, checkBalances, isLoadingBalances, selectedChains, setSelectedChains, layerFilter, setLayerFilter, networkFilter, setNetworkFilter, getFilteredChains } = useChainRaceContext();
   const isMobile = useIsMobile();
   
   // Format balance for display - handle EVM, Solana, and Fuel
@@ -108,8 +108,35 @@ export function FundingPhase() {
           To start the race, fund your wallet on each chain with a small amount of tokens.
         </CardDescription>
         
+        <div className="flex flex-col sm:flex-row gap-4 mb-4 justify-between">
+          <div className="flex justify-start">
+            <ToggleGroup type="single" value={networkFilter} onValueChange={(value: string) => value && setNetworkFilter(value as 'Mainnet' | 'Testnet')}>
+              <ToggleGroupItem value="Testnet" aria-label="Testnet chains">
+                Testnet
+              </ToggleGroupItem>
+              <ToggleGroupItem value="Mainnet" aria-label="Mainnet chains">
+                Mainnet
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          
+          <div className="flex justify-end">
+            <ToggleGroup type="single" value={layerFilter} onValueChange={(value: string) => value && setLayerFilter(value as 'L1' | 'L2' | 'Both')}>
+              <ToggleGroupItem value="L1" aria-label="Layer 1 chains">
+                L1
+              </ToggleGroupItem>
+              <ToggleGroupItem value="L2" aria-label="Layer 2 chains">
+                L2
+              </ToggleGroupItem>
+              <ToggleGroupItem value="Both" aria-label="All chains">
+                Both
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        </div>
+        
         <div className="space-y-2">
-          {allChains.map((chain) => {
+          {getFilteredChains().map((chain) => {
             const chainBalance = balances.find(b => b.chainId === chain.id);
             const hasBalance = chainBalance?.hasBalance || false;
             const balance = chainBalance?.balance || BigInt(0);
@@ -152,7 +179,24 @@ export function FundingPhase() {
                     )}
                   </div>
                   <div>
-                    <h3 className="font-medium text-black dark:text-white">{chain.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-black dark:text-white">{chain.name}</h3>
+                      {'layer' in chain ? (
+                        <Badge 
+                          variant="secondary" 
+                          className="text-xs px-2 py-0.5 bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                        >
+                          {chain.layer}
+                        </Badge>
+                      ) : (
+                        <Badge 
+                          variant="secondary" 
+                          className="text-xs px-2 py-0.5 bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                        >
+                          L1
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-700 dark:text-gray-300">
                       {chainBalance ? `${formatBalance(balance, chain.id)} ${
                         'nativeCurrency' in chain ? chain.nativeCurrency.symbol : 'SOL'

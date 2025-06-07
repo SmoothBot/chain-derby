@@ -1,5 +1,5 @@
 import { Chain } from "viem";
-import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet, somniaTestnet, seiTestnet } from "viem/chains";
+import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet, somniaTestnet, seiTestnet, base, sei } from "viem/chains";
 import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 import { sonicBlaze } from "./sonicblaze";
 import { fuelChains, type FuelChainConfig } from "@/fuel/config";
@@ -9,6 +9,7 @@ export interface ChainConfig extends Chain {
   color: string; // For UI styling
   logo: string; // For logo path
   faucetUrl?: string; // Faucet URL for testnet chains
+  layer: 'L1' | 'L2'; // Layer classification
 }
 
 function getRpcUrls(chain: Chain, url: string | undefined) {
@@ -27,6 +28,7 @@ const riseTestnet_ = {
   color: "#7967E5",
   logo: "/logos/rise.png",
   faucetUrl: "https://faucet.testnet.riselabs.xyz/",
+  layer: 'L2' as const,
 } as const as ChainConfig;
 
 const monadTestnet_ = {
@@ -36,6 +38,7 @@ const monadTestnet_ = {
   color: "#200053", // Purple color for Monad
   logo: "/logos/monad.png",
   faucetUrl: "https://faucet.monad.xyz/",
+  layer: 'L1' as const,
 } as const as ChainConfig;
 
 const megaethTestnet_ = {
@@ -44,6 +47,7 @@ const megaethTestnet_ = {
   color: "#8e8d8f", // Blue color for MegaETH
   logo: "/logos/megaeth.png",
   faucetUrl: "https://testnet.megaeth.com/",
+  layer: 'L2' as const,
 } as const as ChainConfig;
 
 const sonicBlaze_ = {
@@ -52,8 +56,8 @@ const sonicBlaze_ = {
   testnet: true,
   color: "#00AEE9",
   logo: "/logos/sonic.png",
-
-  faucetUrl: "https://testnet.soniclabs.com/account"
+  faucetUrl: "https://testnet.soniclabs.com/account",
+  layer: 'L1' as const,
 } as const as ChainConfig;
 
 const baseSepolia_ = {
@@ -63,33 +67,85 @@ const baseSepolia_ = {
   color: "#0052FF", // Blue color for Base
   logo: "/logos/base.png",
   faucetUrl: "https://www.alchemy.com/faucets/base-sepolia",
+  layer: 'L2' as const,
 } as const as ChainConfig;
 
 const somniaTestnet_ = {
   ...somniaTestnet,
   rpcUrls: getRpcUrls(somniaTestnet, process.env.NEXT_PUBLIC_SOMNIA_TESTNET_RPC_URL),
-  color: "#A533FF",
+  color: "#FF6B9D",
   logo: "/logos/somnia.png",
   faucetUrl: "https://testnet.somnia.network/",
+  layer: 'L1' as const,
 } as const as ChainConfig;
 
 const seiTestnet_ = {
   ...seiTestnet,
   rpcUrls: getRpcUrls(seiTestnet, process.env.NEXT_PUBLIC_SOMNIA_TESTNET_RPC_URL),
-  color: "#A533FF",
+  color: "#8B1538",
   logo: "/logos/sei.svg",
   faucetUrl: "https://testnet.somnia.network/",
+  layer: 'L1' as const,
 } as const as ChainConfig;
 
-// Add the EVM chains we want to include in the race
+// Mainnet chain configurations
+const sonicMainnet = {
+  id: 146,
+  name: "Sonic Mainnet",
+  nativeCurrency: {
+    decimals: 18,
+    name: "Sonic",
+    symbol: "S",
+  },
+  rpcUrls: {
+    default: {
+      http: [process.env.NEXT_PUBLIC_SONIC_MAINNET_RPC_URL || "https://rpc.soniclabs.com"],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: "Sonic Explorer",
+      url: "https://explorer.soniclabs.com",
+    },
+  },
+  testnet: false,
+  color: "#00AEE9",
+  logo: "/logos/sonic.png",
+  layer: 'L1' as const,
+} as const as ChainConfig;
+
+const baseMainnet_ = {
+  ...base,
+  rpcUrls: getRpcUrls(base, process.env.NEXT_PUBLIC_BASE_MAINNET_RPC_URL),
+  testnet: false,
+  color: "#0052FF",
+  logo: "/logos/base.png",
+  layer: 'L2' as const,
+} as const as ChainConfig;
+
+const seiMainnet_ = {
+  ...sei,
+  rpcUrls: getRpcUrls(sei, process.env.NEXT_PUBLIC_SEI_MAINNET_RPC_URL),
+  testnet: false,
+  color: "#8B1538",
+  logo: "/logos/sei.svg",
+  layer: 'L1' as const,
+} as const as ChainConfig;
+
+// Add the EVM chains we want to include in the race (both testnet and mainnet)
 export const evmChains = [
+  // Testnets
   riseTestnet_, 
   monadTestnet_, 
   megaethTestnet_, 
   sonicBlaze_, 
   baseSepolia_, 
   somniaTestnet_,
-  seiTestnet_
+  seiTestnet_,
+  // Mainnets
+  sonicMainnet,
+  baseMainnet_,
+  seiMainnet_
 ];
 
 // All chains (EVM + Solana + Fuel)
