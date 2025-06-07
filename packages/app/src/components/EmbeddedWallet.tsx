@@ -3,23 +3,26 @@
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Separator } from "@/components/ui";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { useSolanaEmbeddedWallet } from "@/hooks/useSolanaEmbeddedWallet";
+import { useFuelEmbeddedWallet } from "@/hooks/useFuelEmbeddedWallet";
 import { CopyIcon, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
 export function EmbeddedWallet() {
   const { account, privateKey } = useChainRaceContext();
   const { publicKey: solanaPublicKey, secret: solanaSecret, isReady: solanaReady } = useSolanaEmbeddedWallet();
-  const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | null>(null);
+  const { address: fuelAddress, secret: fuelSecret, isReady: fuelReady } = useFuelEmbeddedWallet();
+  const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [showSolanaKey, setShowSolanaKey] = useState(false);
+  const [showFuelKey, setShowFuelKey] = useState(false);
   
-  const copyToClipboard = (text: string, type: "address" | "key" | "sol-address" | "sol-key") => {
+  const copyToClipboard = (text: string, type: "address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key") => {
     navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
   };
   
-  if (!account || !privateKey || !solanaReady) {
+  if (!account || !privateKey || !solanaReady || !fuelReady) {
     return (
       <Card className="w-full">
         <CardContent className="pt-6">
@@ -123,6 +126,54 @@ export function EmbeddedWallet() {
                   onClick={() => copyToClipboard(solanaSecret, "sol-key")}
                 >
                   {copied === "sol-key" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Separator */}
+        <Separator />
+
+        {/* Fuel Wallet Section */}
+        {fuelAddress && fuelSecret && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Fuel Wallet</h3>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {fuelAddress}
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => copyToClipboard(fuelAddress, "fuel-address")}
+                >
+                  {copied === "fuel-address" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Private Key (Do not share!)</label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {showFuelKey ? `${fuelSecret.substring(0, 18)}...${fuelSecret.substring(fuelSecret.length - 18)}` : "••••••••••••••••••••"}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowFuelKey(!showFuelKey)}
+                >
+                  {showFuelKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => copyToClipboard(fuelSecret, "fuel-key")}
+                >
+                  {copied === "fuel-key" ? "Copied!" : <CopyIcon size={18} />}
                 </Button>
               </div>
             </div>

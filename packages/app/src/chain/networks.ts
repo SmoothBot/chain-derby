@@ -2,6 +2,7 @@ import { Chain } from "viem";
 import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet, somniaTestnet, seiTestnet, base, sei } from "viem/chains";
 import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 import { sonicBlaze } from "./sonicblaze";
+import { fuelChains, type FuelChainConfig } from "@/fuel/config";
 
 export interface ChainConfig extends Chain {
   testnet: boolean;
@@ -147,11 +148,11 @@ export const evmChains = [
   seiMainnet_
 ];
 
-// All chains (EVM + Solana)
-export const allChains = [...evmChains, ...solanaChains];
+// All chains (EVM + Solana + Fuel)
+export const allChains = [...evmChains, ...solanaChains, ...fuelChains];
 
 // Backward compatibility - rename raceChains to evmChains
 export const raceChains = evmChains;
 
 // Export chain type union
-export type AnyChainConfig = ChainConfig | SolanaChainConfig;
+export type AnyChainConfig = ChainConfig | SolanaChainConfig | FuelChainConfig;
