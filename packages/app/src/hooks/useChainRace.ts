@@ -452,7 +452,7 @@ export function useChainRace() {
       gasPrice?: bigint;
       feeData?: bigint;
       blockData?: unknown;
-      signedTransactions?: (string | null | TransactionRequest)[]; // Store pre-signed transactions, which may be null
+      signedTransactions?: (string | TransactionRequest | null)[]; // Store pre-signed transactions, which may be null
       connection?: Connection; // For Solana chains
     }>();
 
@@ -573,7 +573,7 @@ export function useChainRace() {
             wallet.connect(provider);
             const baseAssetId = await provider.getBaseAssetId();
             const walletCoins = await wallet.getCoins(baseAssetId);
-            
+
             // Find UTXOs with sufficient balance (greater than 10000)
             const coins = walletCoins.coins as Coin[];
             const validUtxos = coins.filter(coin => {
@@ -589,13 +589,13 @@ export function useChainRace() {
             const signedTransactions = [];
             try {
               // Create transaction request with selected UTXO
-              const scriptRequest = new ScriptTransactionRequest({
+              const initialScriptRequest = new ScriptTransactionRequest({
                 script: "0x"
               });
-              scriptRequest.maxFee = bn(100);
-              scriptRequest.addCoinInput(validUtxos[0]);
-              const signedTransaction = await wallet.populateTransactionWitnessesSignature(scriptRequest);
-              signedTransactions.push(signedTransaction);
+              initialScriptRequest.maxFee = bn(100);
+              initialScriptRequest.addCoinInput(validUtxos[0]);
+              const initialSignedTx = await wallet.populateTransactionWitnessesSignature(initialScriptRequest);
+              signedTransactions.push(initialSignedTx);
             } catch (signError) {
               console.error(`Error signing first tx for Fuel chain:`, signError);
               signedTransactions.push(null);
@@ -827,8 +827,8 @@ export function useChainRace() {
               if (chain.id !== 11155931 && chain.id !== 6342) {
                 // Wait for transaction to be confirmed
                 await publicClient!.waitForTransactionReceipt({
-                  pollingInterval: 0,
-                  retryDelay: 0,
+                  pollingInterval: 1, // 1ms
+                  retryDelay: 1, // 1ms
                   hash: txHash,
                   timeout: 60_000, // 60 seconds timeout
                 });
@@ -1075,7 +1075,7 @@ export function useChainRace() {
         } else if (isFuelChain(chain)) {
           // Fuel chain transaction processing
           const currentChainData = chainData.get(chainId);
-          
+
           if (!currentChainData) {
             console.error(`No wallet data for Fuel chain ${chainId}`);
             return;
@@ -1095,14 +1095,14 @@ export function useChainRace() {
               if (currentState?.status === "error") {
                 break;
               }
-              
+
               let txLatency = 0;
               const txStartTime = Date.now();
               let tx;
 
               if (txIndex === 0) {
                 // First transaction - use pre-signed transaction
-                if(!currentChainData.signedTransactions) {
+                if (!currentChainData.signedTransactions) {
                   throw new Error("No pre-signed transaction available");
                 }
                 const signedTransaction = currentChainData.signedTransactions[0];
@@ -1110,7 +1110,7 @@ export function useChainRace() {
                   throw new Error("No pre-signed transaction available");
                 }
                 tx = await provider.sendTransaction(signedTransaction as TransactionRequest, { estimateTxDependencies: false });
-                
+
                 const preConfOutput = await tx.waitForPreConfirmation();
                 if (preConfOutput.resolvedOutputs) {
                   const ethUTXO = preConfOutput.resolvedOutputs.find(
@@ -1149,7 +1149,7 @@ export function useChainRace() {
                 scriptRequest.addResource(resource);
                 const signedTransaction = await fuelWalletUnlocked.populateTransactionWitnessesSignature(scriptRequest);
                 tx = await provider.sendTransaction(signedTransaction as TransactionRequest, { estimateTxDependencies: false });
-                
+
                 const preConfOutput = await tx.waitForPreConfirmation();
                 if (preConfOutput.resolvedOutputs) {
                   const ethUTXO = preConfOutput.resolvedOutputs.find(
@@ -1168,12 +1168,12 @@ export function useChainRace() {
               // Calculate transaction latency
               const txEndTime = Date.now();
               txLatency = txEndTime - txStartTime;
-              
+
               // Update result with transaction hash
-              setResults(prev => 
-                prev.map(r => 
-                  r.chainId === chainId 
-                    ? { ...r, txHash: `0x${tx.id}` } 
+              setResults(prev =>
+                prev.map(r =>
+                  r.chainId === chainId
+                    ? { ...r, txHash: `0x${tx.id}` }
                     : r
                 )
               );
@@ -1185,20 +1185,20 @@ export function useChainRace() {
                     const newLatencies = [...r.txLatencies, txLatency];
                     const txCompleted = r.txCompleted + 1;
                     const allTxCompleted = txCompleted >= transactionCount;
-                    
+
                     const totalLatency = newLatencies.length > 0
                       ? newLatencies.reduce((sum, val) => sum + val, 0)
                       : undefined;
-                      
+
                     const averageLatency = totalLatency !== undefined
                       ? Math.round(totalLatency / newLatencies.length)
                       : undefined;
-                      
-                    const newStatus: "pending" | "racing" | "success" | "error" = 
+
+                    const newStatus: "pending" | "racing" | "success" | "error" =
                       allTxCompleted ? "success" : "racing";
-                      
-                    return { 
-                      ...r, 
+
+                    return {
+                      ...r,
                       txCompleted,
                       status: newStatus,
                       txLatencies: newLatencies,
@@ -1208,12 +1208,12 @@ export function useChainRace() {
                   }
                   return r;
                 });
-              
+
                 // Only determine rankings when chains finish all transactions
                 const finishedResults = updatedResults
                   .filter(r => r.status === "success")
                   .sort((a, b) => (a.averageLatency || Infinity) - (b.averageLatency || Infinity));
-                  
+
                 // Assign positions to finished results
                 finishedResults.forEach((result, idx) => {
                   const position = idx + 1;
@@ -1223,17 +1223,17 @@ export function useChainRace() {
                     }
                   });
                 });
-                
+
                 return updatedResults;
               });
             } catch (error) {
               console.error(`Fuel race error for chain ${chainId}, tx #${txIndex}:`, error);
-              
+
               let errorMessage = "Fuel transaction failed";
-              
+
               if (error instanceof Error) {
                 const fullMessage = error.message;
-                
+
                 if (fullMessage.includes("insufficient funds")) {
                   errorMessage = "Insufficient ETH for transaction fees.";
                 } else if (fullMessage.includes("timeout")) {
@@ -1243,15 +1243,15 @@ export function useChainRace() {
                   errorMessage = firstLine || fullMessage;
                 }
               }
-              
-              setResults(prev => 
-                prev.map(r => 
-                  r.chainId === chainId 
-                    ? { 
-                        ...r, 
-                        status: "error" as const, 
-                        error: errorMessage
-                      } 
+
+              setResults(prev =>
+                prev.map(r =>
+                  r.chainId === chainId
+                    ? {
+                      ...r,
+                      status: "error" as const,
+                      error: errorMessage
+                    }
                     : r
                 )
               );
