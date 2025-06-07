@@ -10,7 +10,7 @@ import { formatEther } from "viem";
 import Image from "next/image";
 
 export function FundingPhase() {
-  const { account, balances, checkBalances, isLoadingBalances, selectedChains, setSelectedChains, layerFilter, setLayerFilter, getFilteredChains } = useChainRaceContext();
+  const { account, balances, checkBalances, isLoadingBalances, selectedChains, setSelectedChains, layerFilter, setLayerFilter, networkFilter, setNetworkFilter, getFilteredChains } = useChainRaceContext();
   const isMobile = useIsMobile();
   
   // Format balance for display - handle both EVM and Solana
@@ -92,19 +92,31 @@ export function FundingPhase() {
           To start the race, fund your wallet on each chain with a small amount of tokens.
         </CardDescription>
         
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-sm font-medium text-muted-foreground"></div>
-          <ToggleGroup type="single" value={layerFilter} onValueChange={(value) => value && setLayerFilter(value as 'L1' | 'L2' | 'Both')}>
-            <ToggleGroupItem value="L1" aria-label="Layer 1 chains">
-              L1
-            </ToggleGroupItem>
-            <ToggleGroupItem value="L2" aria-label="Layer 2 chains">
-              L2
-            </ToggleGroupItem>
-            <ToggleGroupItem value="Both" aria-label="All chains">
-              Both
-            </ToggleGroupItem>
-          </ToggleGroup>
+        <div className="flex flex-col sm:flex-row gap-4 mb-4 justify-between">
+          <div className="flex justify-start">
+            <ToggleGroup type="single" value={networkFilter} onValueChange={(value: string) => value && setNetworkFilter(value as 'Mainnet' | 'Testnet')}>
+              <ToggleGroupItem value="Testnet" aria-label="Testnet chains">
+                Testnet
+              </ToggleGroupItem>
+              <ToggleGroupItem value="Mainnet" aria-label="Mainnet chains">
+                Mainnet
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          
+          <div className="flex justify-end">
+            <ToggleGroup type="single" value={layerFilter} onValueChange={(value: string) => value && setLayerFilter(value as 'L1' | 'L2' | 'Both')}>
+              <ToggleGroupItem value="L1" aria-label="Layer 1 chains">
+                L1
+              </ToggleGroupItem>
+              <ToggleGroupItem value="L2" aria-label="Layer 2 chains">
+                L2
+              </ToggleGroupItem>
+              <ToggleGroupItem value="Both" aria-label="All chains">
+                Both
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </div>
         
         <div className="space-y-2">

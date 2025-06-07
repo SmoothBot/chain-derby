@@ -41,6 +41,8 @@ export type TransactionCount = 1 | 5 | 10 | 20;
 
 export type LayerFilter = 'L1' | 'L2' | 'Both';
 
+export type NetworkFilter = 'Mainnet' | 'Testnet';
+
 export interface RaceSessionPayload {
   title: string;
   walletAddress: string;
@@ -66,6 +68,7 @@ export interface ChainResultPayload {
 const LOCAL_STORAGE_SELECTED_CHAINS = "horse-race-selected-chains";
 const LOCAL_STORAGE_TX_COUNT = "horse-race-tx-count";
 const LOCAL_STORAGE_LAYER_FILTER = "horse-race-layer-filter";
+const LOCAL_STORAGE_NETWORK_FILTER = "horse-race-network-filter";
 
 // Helper functions to distinguish chain types
 function isEvmChain(chain: AnyChainConfig): chain is Chain & { testnet: boolean; color: string; logo: string; faucetUrl?: string; layer: 'L1' | 'L2'; } {
@@ -125,6 +128,17 @@ export function useChainRace() {
     }
     return 'Both';
   });
+
+  const [networkFilter, setNetworkFilter] = useState<NetworkFilter>(() => {
+    // Load saved network filter from localStorage if available
+    if (typeof window !== 'undefined') {
+      const savedFilter = localStorage.getItem(LOCAL_STORAGE_NETWORK_FILTER);
+      if (savedFilter && ['Mainnet', 'Testnet'].includes(savedFilter)) {
+        return savedFilter as NetworkFilter;
+      }
+    }
+    return 'Testnet'; // Default to testnet for safety
+  });
   
   const [selectedChains, setSelectedChains] = useState<(number | string)[]>(() => {
     // Load saved chain selection from localStorage if available
@@ -170,20 +184,41 @@ export function useChainRace() {
     }
   }, [layerFilter]);
 
-  // Get filtered chains based on layer filter
-  const getFilteredChains = useCallback(() => {
-    if (layerFilter === 'Both') {
-      return allChains;
+  // Effect to save network filter to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_NETWORK_FILTER, networkFilter);
     }
-    
+  }, [networkFilter]);
+
+  // Get filtered chains based on layer filter and network filter
+  const getFilteredChains = useCallback(() => {
     return allChains.filter(chain => {
-      if (isEvmChain(chain)) {
-        return chain.layer === layerFilter;
+      // Layer filter
+      if (layerFilter !== 'Both') {
+        if (isEvmChain(chain)) {
+          if (chain.layer !== layerFilter) return false;
+        } else {
+          // For Solana chains, we'll consider them as L1 for filtering purposes
+          if (layerFilter !== 'L1') return false;
+        }
       }
-      // For Solana chains, we'll consider them as L1 for filtering purposes
-      return layerFilter === 'L1';
+      
+      // Network filter (mainnet vs testnet) - no "Both" option
+      if (isEvmChain(chain)) {
+        const isTestnet = chain.testnet;
+        if (networkFilter === 'Testnet' && !isTestnet) return false;
+        if (networkFilter === 'Mainnet' && isTestnet) return false;
+      } else {
+        // For Solana chains, check if it's mainnet or testnet based on the id
+        const isMainnet = chain.id === 'solana-mainnet';
+        if (networkFilter === 'Mainnet' && !isMainnet) return false;
+        if (networkFilter === 'Testnet' && isMainnet) return false;
+      }
+      
+      return true;
     });
-  }, [layerFilter]);
+  }, [layerFilter, networkFilter]);
   
   // Define checkBalances before using it in useEffect
   const checkBalances = useCallback(async () => {
@@ -1131,6 +1166,9 @@ export function useChainRace() {
     // Layer filtering
     layerFilter,
     setLayerFilter,
+    // Network filtering
+    networkFilter,
+    setNetworkFilter,
     getFilteredChains,
     // Solana wallet information
     solanaPublicKey,

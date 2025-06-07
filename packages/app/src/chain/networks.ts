@@ -1,5 +1,5 @@
 import { Chain } from "viem";
-import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet, somniaTestnet, seiTestnet } from "viem/chains";
+import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet, somniaTestnet, seiTestnet, base, sei } from "viem/chains";
 import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 import { sonicBlaze } from "./sonicblaze";
 
@@ -72,7 +72,7 @@ const baseSepolia_ = {
 const somniaTestnet_ = {
   ...somniaTestnet,
   rpcUrls: getRpcUrls(somniaTestnet, process.env.NEXT_PUBLIC_SOMNIA_TESTNET_RPC_URL),
-  color: "#A533FF",
+  color: "#FF6B9D",
   logo: "/logos/somnia.png",
   faucetUrl: "https://testnet.somnia.network/",
   layer: 'L1' as const,
@@ -81,21 +81,70 @@ const somniaTestnet_ = {
 const seiTestnet_ = {
   ...seiTestnet,
   rpcUrls: getRpcUrls(seiTestnet, process.env.NEXT_PUBLIC_SOMNIA_TESTNET_RPC_URL),
-  color: "#A533FF",
+  color: "#8B1538",
   logo: "/logos/sei.svg",
   faucetUrl: "https://testnet.somnia.network/",
   layer: 'L1' as const,
 } as const as ChainConfig;
 
-// Add the EVM chains we want to include in the race
+// Mainnet chain configurations
+const sonicMainnet = {
+  id: 146,
+  name: "Sonic Mainnet",
+  nativeCurrency: {
+    decimals: 18,
+    name: "Sonic",
+    symbol: "S",
+  },
+  rpcUrls: {
+    default: {
+      http: [process.env.NEXT_PUBLIC_SONIC_MAINNET_RPC_URL || "https://rpc.soniclabs.com"],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: "Sonic Explorer",
+      url: "https://explorer.soniclabs.com",
+    },
+  },
+  testnet: false,
+  color: "#00AEE9",
+  logo: "/logos/sonic.png",
+  layer: 'L1' as const,
+} as const as ChainConfig;
+
+const baseMainnet_ = {
+  ...base,
+  rpcUrls: getRpcUrls(base, process.env.NEXT_PUBLIC_BASE_MAINNET_RPC_URL),
+  testnet: false,
+  color: "#0052FF",
+  logo: "/logos/base.png",
+  layer: 'L2' as const,
+} as const as ChainConfig;
+
+const seiMainnet_ = {
+  ...sei,
+  rpcUrls: getRpcUrls(sei, process.env.NEXT_PUBLIC_SEI_MAINNET_RPC_URL),
+  testnet: false,
+  color: "#8B1538",
+  logo: "/logos/sei.svg",
+  layer: 'L1' as const,
+} as const as ChainConfig;
+
+// Add the EVM chains we want to include in the race (both testnet and mainnet)
 export const evmChains = [
+  // Testnets
   riseTestnet_, 
   monadTestnet_, 
   megaethTestnet_, 
   sonicBlaze_, 
   baseSepolia_, 
   somniaTestnet_,
-  seiTestnet_
+  seiTestnet_,
+  // Mainnets
+  sonicMainnet,
+  baseMainnet_,
+  seiMainnet_
 ];
 
 // All chains (EVM + Solana)
