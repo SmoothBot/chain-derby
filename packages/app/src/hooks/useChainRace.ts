@@ -573,7 +573,6 @@ export function useChainRace() {
             wallet.connect(provider);
             const baseAssetId = await provider.getBaseAssetId();
             const walletCoins = await wallet.getCoins(baseAssetId);
-            console.log(`🔍 [Fuel] Consolidated coins: ${walletCoins.coins.length}`);
             
             // Find UTXOs with sufficient balance (greater than 10000)
             const coins = walletCoins.coins as Coin[];
@@ -594,7 +593,6 @@ export function useChainRace() {
                 script: "0x"
               });
               scriptRequest.maxFee = bn(100);
-              console.log(`🔍 [Fuel] Valid UTXOs: ${validUtxos.length}`);
               scriptRequest.addCoinInput(validUtxos[0]);
               const signedTransaction = await wallet.populateTransactionWitnessesSignature(scriptRequest);
               signedTransactions.push(signedTransaction);
