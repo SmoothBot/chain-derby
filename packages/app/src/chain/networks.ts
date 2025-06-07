@@ -1,5 +1,5 @@
 import { Chain } from "viem";
-import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet, somniaTestnet, seiTestnet, base, sei } from "viem/chains";
+import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet, somniaTestnet, seiTestnet, base, sei, sonic } from "viem/chains";
 import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 import { sonicBlaze } from "./sonicblaze";
 import { fuelChains, type FuelChainConfig } from "@/fuel/config";
@@ -81,33 +81,17 @@ const somniaTestnet_ = {
 
 const seiTestnet_ = {
   ...seiTestnet,
-  rpcUrls: getRpcUrls(seiTestnet, process.env.NEXT_PUBLIC_SOMNIA_TESTNET_RPC_URL),
+  rpcUrls: getRpcUrls(seiTestnet, process.env.NEXT_PUBLIC_SEI_TESTNET_RPC_URL),
   color: "#8B1538",
   logo: "/logos/sei.svg",
-  faucetUrl: "https://testnet.somnia.network/",
+  faucetUrl: "https://www.docs.sei.io/learn/faucet",
   layer: 'L1' as const,
 } as const as ChainConfig;
 
 // Mainnet chain configurations
 const sonicMainnet = {
-  id: 146,
-  name: "Sonic Mainnet",
-  nativeCurrency: {
-    decimals: 18,
-    name: "Sonic",
-    symbol: "S",
-  },
-  rpcUrls: {
-    default: {
-      http: [process.env.NEXT_PUBLIC_SONIC_MAINNET_RPC_URL || "https://rpc.soniclabs.com"],
-    },
-  },
-  blockExplorers: {
-    default: {
-      name: "Sonic Explorer",
-      url: "https://explorer.soniclabs.com",
-    },
-  },
+  ...sonic,
+  rpcUrls: getRpcUrls(sonic, process.env.NEXT_PUBLIC_BASE_MAINNET_RPC_URL),
   testnet: false,
   color: "#00AEE9",
   logo: "/logos/sonic.png",
