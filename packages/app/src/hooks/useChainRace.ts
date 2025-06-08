@@ -342,22 +342,8 @@ export function useChainRace() {
                 fullnode: chain.rpcUrl,
               });
               const aptos = new Aptos(config);
-              
-              const resources = await aptos.getAccountResources({
-                accountAddress: aptosAccount.accountAddress,
-              });
 
-              // Find the coin resource for APT
-              const coinResource = resources.find(
-                (resource) => resource.type === "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>"
-              );
-
-              if (coinResource) {
-                const coinData = coinResource.data as { coin: { value: string } };
-                balance = BigInt(coinData.coin.value);
-              } else {
-                balance = BigInt(0);
-              }
+              const balance = BigInt(await aptos.getAccountAPTAmount({accountAddress: aptosAccount.accountAddress}));
 
               // Minimum balance threshold: 0.001 APT (100,000 octas since APT uses 8 decimals)
               const hasBalance = balance > BigInt(100_000);
@@ -744,7 +730,6 @@ export function useChainRace() {
 
             // Pre-sign all transactions for Aptos
             const signedTransactions = [];
-            
             for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
               try {
                 // Create a simple transfer transaction (0 APT to self)
