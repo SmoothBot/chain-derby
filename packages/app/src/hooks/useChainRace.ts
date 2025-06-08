@@ -6,10 +6,13 @@ import { allChains, type AnyChainConfig } from "@/chain/networks";
 import { useEmbeddedWallet } from "./useEmbeddedWallet";
 import { useSolanaEmbeddedWallet } from "./useSolanaEmbeddedWallet";
 import { useFuelEmbeddedWallet } from "./useFuelEmbeddedWallet";
+import { useAptosEmbeddedWallet } from "./useAptosEmbeddedWallet";
 import { createSyncPublicClient, syncTransport } from "rise-shred-client";
 import { Connection, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import type { SolanaChainConfig } from "@/solana/config";
 import type { FuelChainConfig } from "@/fuel/config";
+import type { AptosChainConfig } from "@/aptos/config";
+import { Aptos, AptosConfig, Network, type SimpleTransaction, type AccountAuthenticator } from "@aptos-labs/ts-sdk";
 import { getGeo } from "@/lib/geo";
 import { saveRaceResults } from "@/lib/api";
 import { WalletUnlocked, bn, Provider, type TransactionRequest, ScriptTransactionRequest, type Coin, ResolvedOutput, OutputChange } from "fuels";
@@ -86,6 +89,11 @@ function isFuelChain(chain: AnyChainConfig): chain is FuelChainConfig {
   return chain.name === "Fuel Testnet" || chain.name === "Fuel Mainnet";
 }
 
+function isAptosChain(chain: AnyChainConfig): chain is AptosChainConfig {
+  return 'network' in chain && typeof chain.network === 'string' && 
+         ('id' in chain && typeof chain.id === 'string' && chain.id.startsWith('aptos-'));
+}
+
 // Helper function to get fallback RPC endpoints for Solana
 function getSolanaFallbackEndpoints(chain: SolanaChainConfig): string[] {
   const fallbackEndpoints = [
@@ -108,6 +116,7 @@ export function useChainRace() {
   const { account, privateKey, isReady, resetWallet } = useEmbeddedWallet();
   const { publicKey: solanaPublicKey, keypair: solanaKeypair, isReady: solanaReady } = useSolanaEmbeddedWallet();
   const { wallet: fuelWallet, isReady: fuelReady } = useFuelEmbeddedWallet();
+  const { account: aptosAccount, address: aptosAddress, isReady: aptosReady } = useAptosEmbeddedWallet();
   const [status, setStatus] = useState<ChainRaceStatus>("idle");
   const [balances, setBalances] = useState<ChainBalance[]>([]);
   const [results, setResults] = useState<RaceResult[]>([]);
@@ -208,6 +217,8 @@ export function useChainRace() {
           if (chain.layer !== layerFilter) return false;
         } else if (isFuelChain(chain)) {
           if (chain.layer !== layerFilter) return false;
+        } else if (isAptosChain(chain)) {
+          if (chain.layer !== layerFilter) return false;
         } else {
           // For Solana chains, we'll consider them as L1 for filtering purposes
           if (layerFilter !== 'L1') return false;
@@ -220,6 +231,10 @@ export function useChainRace() {
         if (networkFilter === 'Testnet' && !isTestnet) return false;
         if (networkFilter === 'Mainnet' && isTestnet) return false;
       } else if (isFuelChain(chain)) {
+        const isTestnet = chain.testnet;
+        if (networkFilter === 'Testnet' && !isTestnet) return false;
+        if (networkFilter === 'Mainnet' && isTestnet) return false;
+      } else if (isAptosChain(chain)) {
         const isTestnet = chain.testnet;
         if (networkFilter === 'Testnet' && !isTestnet) return false;
         if (networkFilter === 'Mainnet' && isTestnet) return false;
@@ -236,7 +251,7 @@ export function useChainRace() {
   
   // Define checkBalances before using it in useEffect
   const checkBalances = useCallback(async () => {
-    if (!account || !solanaReady || !solanaPublicKey || !fuelReady || !fuelWallet) return;
+    if (!account || !solanaReady || !solanaPublicKey || !fuelReady || !fuelWallet || !aptosReady || !aptosAccount) return;
 
     setIsLoadingBalances(true);
 
@@ -314,6 +329,38 @@ export function useChainRace() {
               balance = BigInt(fuelBalance.toString());
               // Minimum balance threshold: 0.001 ETH (1e6 since Fuel uses 9 decimals)
               const hasBalance = balance > BigInt(1e6);
+
+              return {
+                chainId,
+                balance,
+                hasBalance,
+              };
+            } else if (isAptosChain(chain)) {
+              // Aptos balance check
+              const config = new AptosConfig({ 
+                network: chain.network as Network,
+                fullnode: chain.rpcUrl,
+              });
+              const aptos = new Aptos(config);
+              
+              const resources = await aptos.getAccountResources({
+                accountAddress: aptosAccount.accountAddress,
+              });
+
+              // Find the coin resource for APT
+              const coinResource = resources.find(
+                (resource) => resource.type === "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>"
+              );
+
+              if (coinResource) {
+                const coinData = coinResource.data as { coin: { value: string } };
+                balance = BigInt(coinData.coin.value);
+              } else {
+                balance = BigInt(0);
+              }
+
+              // Minimum balance threshold: 0.001 APT (100,000 octas since APT uses 8 decimals)
+              const hasBalance = balance > BigInt(100_000);
 
               return {
                 chainId,
@@ -413,11 +460,11 @@ export function useChainRace() {
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [account, solanaPublicKey, solanaReady, fuelWallet, fuelReady, status, selectedChains]);
+  }, [account, solanaPublicKey, solanaReady, fuelWallet, fuelReady, aptosAccount, aptosReady, status, selectedChains]);
 
   // Effect to check balances automatically when wallet is ready
   useEffect(() => {
-    if (isReady && solanaReady && account && solanaPublicKey && fuelReady && fuelWallet && status !== "racing" && status !== "finished") {
+    if (isReady && solanaReady && account && solanaPublicKey && fuelReady && fuelWallet && aptosReady && aptosAccount && status !== "racing" && status !== "finished") {
       // Add a small delay to ensure everything is fully initialized
       const timer = setTimeout(() => {
         checkBalances();
@@ -425,7 +472,7 @@ export function useChainRace() {
 
       return () => clearTimeout(timer);
     }
-  }, [isReady, solanaReady, account, solanaPublicKey, fuelWallet, fuelReady, status, checkBalances]);
+  }, [isReady, solanaReady, account, solanaPublicKey, fuelWallet, fuelReady, aptosReady, aptosAccount, status, checkBalances]);
 
   // Effect to save race results when race finishes
   useEffect(() => {
@@ -513,7 +560,7 @@ export function useChainRace() {
 
   // Start the race across selected chains
   const startRace = async () => {
-    if (!account || !privateKey || !solanaKeypair || !fuelWallet || status !== "ready") return;
+    if (!account || !privateKey || !solanaKeypair || !fuelWallet || !aptosAccount || status !== "ready") return;
 
     setStatus("racing");
     
@@ -530,8 +577,10 @@ export function useChainRace() {
       gasPrice?: bigint;
       feeData?: bigint;
       blockData?: unknown;
-      signedTransactions?: (string | TransactionRequest | null)[]; // Store pre-signed transactions, which may be null
+      signedTransactions?: (string | TransactionRequest | { transaction: SimpleTransaction; senderAuthenticator: AccountAuthenticator } | null)[]; // Store pre-signed transactions, which may be null
       connection?: Connection; // For Solana chains
+      aptos?: Aptos; // For Aptos chains
+      wallet?: WalletUnlocked; // For Fuel chains
     }>();
 
     try {
@@ -683,6 +732,50 @@ export function useChainRace() {
               chainId,
               nonce: 0,
               wallet,
+              signedTransactions,
+            };
+          } else if (isAptosChain(chain)) {
+            // Aptos chain data fetching
+            const config = new AptosConfig({ 
+              network: chain.network as Network,
+              fullnode: chain.rpcUrl,
+            });
+            const aptos = new Aptos(config);
+
+            // Pre-sign all transactions for Aptos
+            const signedTransactions = [];
+            
+            for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
+              try {
+                // Create a simple transfer transaction (0 APT to self)
+                const transaction = await aptos.transaction.build.simple({
+                  sender: aptosAccount.accountAddress,
+                  data: {
+                    function: "0x1::aptos_account::transfer",
+                    functionArguments: [aptosAccount.accountAddress, 0], // Transfer 0 APT to self
+                  },
+                });
+
+                // Sign the transaction
+                const senderAuthenticator = aptos.transaction.sign({
+                  signer: aptosAccount,
+                  transaction,
+                });
+
+                signedTransactions.push({
+                  transaction,
+                  senderAuthenticator,
+                });
+              } catch (signError) {
+                console.error(`Error signing tx #${txIndex} for Aptos chain:`, signError);
+                signedTransactions.push(null);
+              }
+            }
+
+            return {
+              chainId,
+              nonce: 0,
+              aptos,
               signedTransactions,
             };
           } else {
@@ -1336,6 +1429,150 @@ export function useChainRace() {
               break;
             }
           }
+        } else if (isAptosChain(chain)) {
+          // Aptos chain transaction processing
+          const currentChainData = chainData.get(chainId);
+
+          if (!currentChainData || !currentChainData.aptos) {
+            console.error(`No Aptos client data for chain ${chainId}`);
+            return;
+          }
+
+          const aptos = currentChainData.aptos;
+
+          // Run the specified number of transactions
+          for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
+            try {
+              // Skip if chain already had an error
+              const currentState = results.find(r => r.chainId === chainId);
+              if (currentState?.status === "error") {
+                break;
+              }
+
+              let txLatency = 0;
+              const txStartTime = Date.now();
+
+              // Get the pre-signed transaction for this index
+              const hasPreSignedTx = currentChainData.signedTransactions &&
+                txIndex < currentChainData.signedTransactions.length &&
+                currentChainData.signedTransactions[txIndex] !== null;
+
+              if (hasPreSignedTx) {
+                // Use pre-signed transaction
+                const signedTxData = currentChainData.signedTransactions![txIndex] as {
+                  transaction: SimpleTransaction;
+                  senderAuthenticator: AccountAuthenticator;
+                };
+
+                // Submit the transaction
+                const response = await aptos.transaction.submit.simple({
+                  transaction: signedTxData.transaction,
+                  senderAuthenticator: signedTxData.senderAuthenticator,
+                });
+
+                // Wait for transaction confirmation
+                await aptos.waitForTransaction({
+                  transactionHash: response.hash,
+                });
+
+                // Calculate transaction latency
+                const txEndTime = Date.now();
+                txLatency = txEndTime - txStartTime;
+
+                // Update result with transaction hash
+                setResults(prev =>
+                  prev.map(r =>
+                    r.chainId === chainId
+                      ? { ...r, txHash: response.hash.startsWith('0x') ? response.hash as Hex : `0x${response.hash}` as Hex }
+                      : r
+                  )
+                );
+
+                // Transaction confirmed, update completed count and track latencies
+                setResults((prev) => {
+                  const updatedResults = prev.map(r => {
+                    if (r.chainId === chainId) {
+                      const newLatencies = [...r.txLatencies, txLatency];
+                      const txCompleted = r.txCompleted + 1;
+                      const allTxCompleted = txCompleted >= transactionCount;
+
+                      const totalLatency = newLatencies.length > 0
+                        ? newLatencies.reduce((sum, val) => sum + val, 0)
+                        : undefined;
+
+                      const averageLatency = totalLatency !== undefined
+                        ? Math.round(totalLatency / newLatencies.length)
+                        : undefined;
+
+                      const newStatus: "pending" | "racing" | "success" | "error" =
+                        allTxCompleted ? "success" : "racing";
+
+                      return {
+                        ...r,
+                        txCompleted,
+                        status: newStatus,
+                        txLatencies: newLatencies,
+                        averageLatency,
+                        totalLatency
+                      };
+                    }
+                    return r;
+                  });
+
+                  // Only determine rankings when chains finish all transactions
+                  const finishedResults = updatedResults
+                    .filter(r => r.status === "success")
+                    .sort((a, b) => (a.averageLatency || Infinity) - (b.averageLatency || Infinity));
+
+                  // Assign positions to finished results
+                  finishedResults.forEach((result, idx) => {
+                    const position = idx + 1;
+                    updatedResults.forEach((r, i) => {
+                      if (r.chainId === result.chainId) {
+                        updatedResults[i] = { ...r, position };
+                      }
+                    });
+                  });
+
+                  return updatedResults;
+                });
+              } else {
+                throw new Error(`No pre-signed transaction available for Aptos tx #${txIndex}`);
+              }
+            } catch (error) {
+              console.error(`Aptos race error for chain ${chainId}, tx #${txIndex}:`, error);
+
+              let errorMessage = "Aptos transaction failed";
+
+              if (error instanceof Error) {
+                const fullMessage = error.message;
+
+                if (fullMessage.includes("insufficient funds")) {
+                  errorMessage = "Insufficient APT for transaction fees.";
+                } else if (fullMessage.includes("timeout")) {
+                  errorMessage = "Aptos network timeout. Please try again.";
+                } else if (fullMessage.includes("SEQUENCE_NUMBER_TOO_OLD")) {
+                  errorMessage = "Transaction sequence error. Please try again.";
+                } else {
+                  const firstLine = fullMessage.split('\n')[0];
+                  errorMessage = firstLine || fullMessage;
+                }
+              }
+
+              setResults(prev =>
+                prev.map(r =>
+                  r.chainId === chainId
+                    ? {
+                      ...r,
+                      status: "error" as const,
+                      error: errorMessage
+                    }
+                    : r
+                )
+              );
+              break;
+            }
+          }
         }
 
       } catch (error) {
@@ -1433,5 +1670,9 @@ export function useChainRace() {
     // Fuel wallet information
     fuelWallet,
     fuelReady,
+    // Aptos wallet information
+    aptosAccount,
+    aptosAddress,
+    aptosReady,
   };
 }

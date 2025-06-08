@@ -10,6 +10,7 @@
     "update-projects": "update-projects.sh"
   },
   "dependencies": {
+    "@aptos-labs/ts-sdk": "^2.0.1",
     "@fontsource/inter": "^5.2.5",
     "@fontsource/inter-tight": "^5.2.5",
     "@fontsource/space-grotesk": "^5.2.6",
