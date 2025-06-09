@@ -4,6 +4,7 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Sepa
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { useSolanaEmbeddedWallet } from "@/hooks/useSolanaEmbeddedWallet";
 import { useFuelEmbeddedWallet } from "@/hooks/useFuelEmbeddedWallet";
+import { useAptosEmbeddedWallet } from "@/hooks/useAptosEmbeddedWallet";
 import { CopyIcon, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
@@ -11,18 +12,20 @@ export function EmbeddedWallet() {
   const { account, privateKey } = useChainRaceContext();
   const { publicKey: solanaPublicKey, secret: solanaSecret, isReady: solanaReady } = useSolanaEmbeddedWallet();
   const { address: fuelAddress, secret: fuelSecret, isReady: fuelReady } = useFuelEmbeddedWallet();
-  const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | null>(null);
+  const { address: aptosAddress, privateKey: aptosPrivateKey, isReady: aptosReady } = useAptosEmbeddedWallet();
+  const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [showSolanaKey, setShowSolanaKey] = useState(false);
   const [showFuelKey, setShowFuelKey] = useState(false);
+  const [showAptosKey, setShowAptosKey] = useState(false);
   
-  const copyToClipboard = (text: string, type: "address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key") => {
+  const copyToClipboard = (text: string, type: "address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key") => {
     navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
   };
   
-  if (!account || !privateKey || !solanaReady || !fuelReady) {
+  if (!account || !privateKey || !solanaReady || !fuelReady || !aptosReady) {
     return (
       <Card className="w-full">
         <CardContent className="pt-6">
@@ -174,6 +177,54 @@ export function EmbeddedWallet() {
                   onClick={() => copyToClipboard(fuelSecret, "fuel-key")}
                 >
                   {copied === "fuel-key" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Separator */}
+        <Separator />
+
+        {/* Aptos Wallet Section */}
+        {aptosAddress && aptosPrivateKey && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Aptos Wallet</h3>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {aptosAddress}
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => copyToClipboard(aptosAddress, "aptos-address")}
+                >
+                  {copied === "aptos-address" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Private Key (Do not share!)</label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {showAptosKey ? `${aptosPrivateKey.substring(0, 18)}...${aptosPrivateKey.substring(aptosPrivateKey.length - 18)}` : "••••••••••••••••••••"}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowAptosKey(!showAptosKey)}
+                >
+                  {showAptosKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => copyToClipboard(aptosPrivateKey, "aptos-key")}
+                >
+                  {copied === "aptos-key" ? "Copied!" : <CopyIcon size={18} />}
                 </Button>
               </div>
             </div>

@@ -47,6 +47,22 @@ export function FundingPhase() {
         return ethValue.toExponential(3);
       }
       return ethValue.toFixed(6).replace(/\.?0+$/, '');
+    } else if (typeof chainId === 'string' && chainId.includes('aptos')) {
+      // Aptos balance formatting (8 decimals)
+      const aptValue = Number(balance) / 1e8; // Convert from octas to APT
+      if (isMobile) {
+        if (aptValue === 0) return '0.0';
+        if (aptValue < 0.0001) {
+          return aptValue.toExponential(2);
+        }
+        return aptValue.toFixed(4).replace(/\.?0+$/, '');
+      }
+      // Desktop formatting
+      if (aptValue === 0) return '0.0';
+      if (aptValue < 0.000001) {
+        return aptValue.toExponential(3);
+      }
+      return aptValue.toFixed(6).replace(/\.?0+$/, '');
     } else {
       // EVM balance formatting (wei to ETH)
       const etherValue = formatEther(balance);
