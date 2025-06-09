@@ -24,7 +24,7 @@ export const aptosTestnet: AptosChainConfig = {
   network: 'testnet',
   rpcUrl: process.env.NEXT_PUBLIC_APTOS_TESTNET_RPC_URL || 'https://api.testnet.aptoslabs.com/v1',
   indexerUrl: 'https://indexer-testnet.staging.gcp.aptosdev.com/v1/graphql',
-  faucetUrl: 'https://faucet.testnet.aptoslabs.com',
+  faucetUrl: 'https://aptos.dev/en/network/faucet',
   explorerUrl: 'https://explorer.aptoslabs.com/?network=testnet',
   nativeCurrency: {
     name: 'Aptos',
