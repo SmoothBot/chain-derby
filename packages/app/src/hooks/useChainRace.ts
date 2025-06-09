@@ -1009,7 +1009,7 @@ export function useChainRace() {
               if (chain.id !== 11155931 && chain.id !== 6342) {
                 // Wait for transaction to be confirmed
                 await publicClient!.waitForTransactionReceipt({
-                  pollingInterval: 1, // 1ms
+                  pollingInterval: 50, // 50ms to avoid rate limits
                   retryDelay: 1, // 1ms
                   hash: txHash,
                   timeout: 60_000, // 60 seconds timeout
@@ -1132,6 +1132,7 @@ export function useChainRace() {
               }
 
               let txLatency = 0;
+              let signature: string;
               const txStartTime = Date.now();
 
               // Get the pre-signed transaction for this index
@@ -1140,22 +1141,22 @@ export function useChainRace() {
                 currentChainData.signedTransactions[txIndex] !== null;
 
               if (hasPreSignedTx) {
-                // Use pre-signed transaction
-                const serializedTransaction = currentChainData.signedTransactions[txIndex] as Buffer;
+                // Use pre-signed transaction (we know it exists due to hasPreSignedTx check)
+                const serializedTransaction = currentChainData.signedTransactions![txIndex] as Buffer;
 
                 // Send the pre-signed transaction
-                const signature = await currentChainData.connection.sendRawTransaction(
+                signature = await currentChainData.connection.sendRawTransaction(
                   serializedTransaction,
                   {
                     skipPreflight: false,
-                    preflightCommitment: chain.commitment,
+                    preflightCommitment: (chain as SolanaChainConfig).commitment,
                   }
                 );
 
                 // Wait for confirmation
                 await currentChainData.connection.confirmTransaction(
                   signature,
-                  chain.commitment
+                  (chain as SolanaChainConfig).commitment
                 );
 
                 // Calculate transaction latency
@@ -1182,13 +1183,13 @@ export function useChainRace() {
                   })
                 );
 
-                const signature = await sendAndConfirmTransaction(
+                signature = await sendAndConfirmTransaction(
                   currentChainData.connection,
                   transaction,
                   [solanaKeypair],
                   {
-                    commitment: chain.commitment,
-                    preflightCommitment: chain.commitment,
+                    commitment: (chain as SolanaChainConfig).commitment,
+                    preflightCommitment: (chain as SolanaChainConfig).commitment,
                   }
                 );
 
