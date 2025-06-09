@@ -634,11 +634,17 @@ export function useChainRace() {
 
             for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
               try {
+                // Use higher gas limit for chains that require it
+                const gasLimit = BigInt(
+                  chain.id === 2524852 ? 50000 :  // Huddle01 needs higher gas limit
+                  21000                           // Standard gas limit for simple transfers
+                );
+
                 // Use Sepolia-like parameters for Monad since it's finicky
                 const txParams = {
                   to: account.address,
                   value: BigInt(0),
-                  gas: 21000n,
+                  gas: gasLimit,
                   gasPrice: feeData,
                   nonce: nonce + txIndex,
                   chainId: chain.id,

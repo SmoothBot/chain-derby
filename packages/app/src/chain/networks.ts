@@ -1,5 +1,5 @@
 import { Chain } from "viem";
-import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet, somniaTestnet, seiTestnet, base, sei, sonic } from "viem/chains";
+import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet, somniaTestnet, seiTestnet, base, sei, sonic, huddle01Testnet } from "viem/chains";
 import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 import { sonicBlaze } from "./sonicblaze";
 import { fuelChains, type FuelChainConfig } from "@/fuel/config";
@@ -89,6 +89,15 @@ const seiTestnet_ = {
   layer: 'L1' as const,
 } as const as ChainConfig;
 
+const huddle01Testnet_ = {
+  ...huddle01Testnet,
+ testnet: true,
+ faucetUrl: "https://huddle-testnet.hub.caldera.xyz",
+ color: "#246BFD",
+ logo: "/logos/huddle01.png",
+ layer: 'L2' as const,
+} as const as ChainConfig;
+
 // Mainnet chain configurations
 const sonicMainnet = {
   ...sonic,
@@ -127,6 +136,7 @@ export const evmChains = [
   baseSepolia_, 
   somniaTestnet_,
   seiTestnet_,
+  huddle01Testnet_,
   // Mainnets
   sonicMainnet,
   baseMainnet_,
