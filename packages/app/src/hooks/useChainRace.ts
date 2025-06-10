@@ -7,11 +7,13 @@ import { useEmbeddedWallet } from "./useEmbeddedWallet";
 import { useSolanaEmbeddedWallet } from "./useSolanaEmbeddedWallet";
 import { useFuelEmbeddedWallet } from "./useFuelEmbeddedWallet";
 import { useAptosEmbeddedWallet } from "./useAptosEmbeddedWallet";
+import { useSoonEmbeddedWallet } from "./useSoonEmbeddedWallet";
 import { createSyncPublicClient, syncTransport } from "rise-shred-client";
 import { Connection, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import type { SolanaChainConfig } from "@/solana/config";
 import type { FuelChainConfig } from "@/fuel/config";
 import type { AptosChainConfig } from "@/aptos/config";
+import type { SoonChainConfig } from "@/soon/config";
 import { Aptos, AptosConfig, Network, type SimpleTransaction, type AccountAuthenticator } from "@aptos-labs/ts-sdk";
 import { getGeo } from "@/lib/geo";
 import { saveRaceResults } from "@/lib/api";
@@ -94,6 +96,10 @@ function isAptosChain(chain: AnyChainConfig): chain is AptosChainConfig {
          ('id' in chain && typeof chain.id === 'string' && chain.id.startsWith('aptos-'));
 }
 
+function isSoonChain(chain: AnyChainConfig): chain is SoonChainConfig {
+  return 'id' in chain && typeof chain.id === 'string' && chain.id.startsWith('soon-');
+}
+
 // Helper function to get fallback RPC endpoints for Solana
 function getSolanaFallbackEndpoints(chain: SolanaChainConfig): string[] {
   const fallbackEndpoints = [
@@ -117,6 +123,7 @@ export function useChainRace() {
   const { publicKey: solanaPublicKey, keypair: solanaKeypair, isReady: solanaReady } = useSolanaEmbeddedWallet();
   const { wallet: fuelWallet, isReady: fuelReady } = useFuelEmbeddedWallet();
   const { account: aptosAccount, address: aptosAddress, isReady: aptosReady } = useAptosEmbeddedWallet();
+  const { publicKey: soonPublicKey, keypair: soonKeypair, isReady: soonReady } = useSoonEmbeddedWallet();
   const [status, setStatus] = useState<ChainRaceStatus>("idle");
   const [balances, setBalances] = useState<ChainBalance[]>([]);
   const [results, setResults] = useState<RaceResult[]>([]);
@@ -219,6 +226,9 @@ export function useChainRace() {
           if (chain.layer !== layerFilter) return false;
         } else if (isAptosChain(chain)) {
           if (chain.layer !== layerFilter) return false;
+        } else if (isSoonChain(chain)) {
+          // For SOON chains, we'll consider them as L2 for filtering purposes (SVM rollup)
+          if (layerFilter !== 'L2') return false;
         } else {
           // For Solana chains, we'll consider them as L1 for filtering purposes
           if (layerFilter !== 'L1') return false;
@@ -235,6 +245,10 @@ export function useChainRace() {
         if (networkFilter === 'Testnet' && !isTestnet) return false;
         if (networkFilter === 'Mainnet' && isTestnet) return false;
       } else if (isAptosChain(chain)) {
+        const isTestnet = chain.testnet;
+        if (networkFilter === 'Testnet' && !isTestnet) return false;
+        if (networkFilter === 'Mainnet' && isTestnet) return false;
+      } else if (isSoonChain(chain)) {
         const isTestnet = chain.testnet;
         if (networkFilter === 'Testnet' && !isTestnet) return false;
         if (networkFilter === 'Mainnet' && isTestnet) return false;
@@ -320,6 +334,26 @@ export function useChainRace() {
 
               // If all endpoints failed, throw the last error
               throw lastError || new Error(`All Solana RPC endpoints failed for ${chain.id}`);
+            } else if (isSoonChain(chain)) {
+              // SOON chain balance check - similar to Solana since it's SVM-based
+              try {
+                const connection = new Connection(chain.endpoint, chain.commitment);
+                const lamports = await connection.getBalance(soonPublicKey, chain.commitment);
+
+                // Convert lamports to bigint for consistency with EVM
+                balance = BigInt(lamports);
+                // Minimum balance threshold: 0.001 ETH (1,000,000 lamports for SOON)
+                const hasBalance = balance > BigInt(1_000_000);
+
+                return {
+                  chainId,
+                  balance,
+                  hasBalance,
+                };
+              } catch (error) {
+                console.error(`SOON balance check failed for ${chain.id}:`, error);
+                throw error;
+              }
             } else if (isFuelChain(chain)) {
               // Fuel balance check
               const provider = new Provider(chain.rpcUrls.public.http[0]);
@@ -446,11 +480,11 @@ export function useChainRace() {
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [account, solanaPublicKey, solanaReady, fuelWallet, fuelReady, aptosAccount, aptosReady, status, selectedChains]);
+  }, [account, solanaPublicKey, solanaReady, fuelWallet, fuelReady, aptosAccount, aptosReady, soonPublicKey, soonReady, status, selectedChains]);
 
   // Effect to check balances automatically when wallet is ready
   useEffect(() => {
-    if (isReady && solanaReady && account && solanaPublicKey && fuelReady && fuelWallet && aptosReady && aptosAccount && status !== "racing" && status !== "finished") {
+    if (isReady && solanaReady && account && solanaPublicKey && fuelReady && fuelWallet && aptosReady && aptosAccount && soonReady && soonPublicKey && status !== "racing" && status !== "finished") {
       // Add a small delay to ensure everything is fully initialized
       const timer = setTimeout(() => {
         checkBalances();
@@ -732,6 +766,59 @@ export function useChainRace() {
               connection: workingConnection,
               signedTransactions
             };
+          } else if (isSoonChain(chain)) {
+            // SOON chain data fetching - similar to Solana since it's SVM-based
+            try {
+              const connection = new Connection(chain.endpoint, chain.commitment);
+              // Test the connection by getting latest blockhash
+              await connection.getLatestBlockhash(chain.commitment);
+              console.log(`Using SOON RPC ${chain.endpoint} for ${chain.id}`);
+
+              // Pre-sign all SOON transactions
+              const signedTransactions = [];
+              
+              try {
+                // Get the latest blockhash for all transactions
+                const { blockhash } = await connection.getLatestBlockhash(chain.commitment);
+                
+                for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
+                  try {
+                    // Create transaction with unique transfer amount to avoid duplicate signatures
+                    const transaction = new Transaction({
+                      feePayer: soonKeypair.publicKey,
+                      recentBlockhash: blockhash,
+                    }).add(
+                      SystemProgram.transfer({
+                        fromPubkey: soonKeypair.publicKey,
+                        toPubkey: soonKeypair.publicKey,
+                        lamports: txIndex + 1, // Use different amounts to make transactions unique
+                      })
+                    );
+
+                    // Sign the transaction
+                    transaction.sign(soonKeypair);
+
+                    // Serialize the signed transaction
+                    const serializedTx = transaction.serialize();
+                    signedTransactions.push(serializedTx);
+                  } catch (signError) {
+                    console.error(`Error signing SOON tx #${txIndex} for ${chain.id}:`, signError);
+                    signedTransactions.push(null);
+                  }
+                }
+              } catch (blockhashError) {
+                console.error(`Error getting blockhash for SOON ${chain.id}:`, blockhashError);
+              }
+
+              return {
+                chainId,
+                nonce: 0, // Not applicable for SOON
+                connection,
+                signedTransactions
+              };
+            } catch (error) {
+              throw new Error(`SOON RPC failed for ${chain.id} during setup: ${error.message}`);
+            }
           } else if (isFuelChain(chain)) {
             // Fuel chain data fetching
             const provider = new Provider(chain.rpcUrls.public.http[0]);
@@ -1289,6 +1376,126 @@ export function useChainRace() {
                       status: "error" as const,
                       error: errorMessage
                     }
+                    : r
+                )
+              );
+              break; // Stop sending transactions for this chain if there's an error
+            }
+          }
+        } else if (isSoonChain(chain)) {
+          // SOON chain transaction processing - similar to Solana since it's SVM-based
+          const currentChainData = chainData.get(chainId);
+
+          if (!currentChainData || !currentChainData.connection) {
+            console.error(`No connection data for SOON chain ${chainId}`);
+            return;
+          }
+
+          // Run the specified number of transactions
+          for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
+            try {
+              // Skip if chain already had an error
+              const currentState = results.find(r => r.chainId === chainId);
+              if (currentState?.status === "error") {
+                break;
+              }
+
+              let txLatency = 0;
+              let signature: string;
+              const txStartTime = Date.now();
+
+              // Get the pre-signed transaction for this index
+              const hasPreSignedTx = currentChainData.signedTransactions &&
+                txIndex < currentChainData.signedTransactions.length &&
+                currentChainData.signedTransactions[txIndex] !== null;
+
+              if (hasPreSignedTx) {
+                // Use pre-signed transaction
+                const serializedTransaction = currentChainData.signedTransactions![txIndex] as Buffer;
+
+                // Send the pre-signed transaction
+                signature = await currentChainData.connection.sendRawTransaction(
+                  serializedTransaction,
+                  {
+                    skipPreflight: false,
+                    preflightCommitment: (chain as SoonChainConfig).commitment,
+                  }
+                );
+
+                // Wait for confirmation
+                await currentChainData.connection.confirmTransaction(
+                  signature,
+                  (chain as SoonChainConfig).commitment
+                );
+
+                // Calculate transaction latency
+                txLatency = Date.now() - txStartTime;
+              } else {
+                console.warn(`No pre-signed transaction found for SOON tx #${txIndex}, skipping`);
+                continue;
+              }
+
+              // Store the signature hash for this specific transaction
+              if (txIndex === 0) {
+                // Store signature in the first transaction only to avoid overwriting
+                setResults((prev) =>
+                  prev.map((r) =>
+                    r.chainId === chainId
+                      ? { ...r, signature } // Store SOON signature
+                      : r
+                  )
+                );
+              }
+
+              // Transaction confirmed, update completed count and track latencies
+              setResults((prev) => {
+                const updatedResults = prev.map(r => {
+                  if (r.chainId === chainId) {
+                    // Add this transaction's latency to the array
+                    const newLatencies = [...r.txLatencies, txLatency];
+
+                    const txCompleted = r.txCompleted + 1;
+                    const allTxCompleted = txCompleted >= transactionCount;
+
+                    // Calculate total and average latency if we have latencies
+                    const totalLatency = newLatencies.length > 0
+                      ? newLatencies.reduce((sum, val) => sum + val, 0)
+                      : undefined;
+
+                    const averageLatency = totalLatency !== undefined
+                      ? Math.round(totalLatency / newLatencies.length)
+                      : undefined;
+
+                    // Ensure status is one of the allowed values from RaceResult.status type
+                    const newStatus: "pending" | "racing" | "success" | "error" =
+                      allTxCompleted ? "success" : "racing";
+
+                    return {
+                      ...r,
+                      txCompleted,
+                      status: newStatus,
+                      txLatencies: newLatencies,
+                      averageLatency,
+                      totalLatency
+                    };
+                  }
+                  return r;
+                });
+
+                return updatedResults;
+              });
+
+            } catch (error) {
+              console.error(`SOON transaction ${txIndex} failed for ${chain.id}:`, error);
+              // Mark this chain as having an error
+              setResults((prev) =>
+                prev.map((r) =>
+                  r.chainId === chainId
+                    ? {
+                        ...r,
+                        status: "error" as const,
+                        error: error instanceof Error ? error.message : String(error),
+                      }
                     : r
                 )
               );
