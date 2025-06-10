@@ -10,6 +10,7 @@ export interface SoonChainConfig {
   faucetUrl?: string;            // Optional faucet URL
   explorerUrl: string;           // Block explorer URL
   testnet: boolean;              // Is this a testnet
+  layer: 'L2';                  // Layer classification - SOON is an L2
 }
 
 export const soonTestnet: SoonChainConfig = {
@@ -22,6 +23,7 @@ export const soonTestnet: SoonChainConfig = {
   explorerUrl: "https://explorer.soo.network",
   testnet: true,
   faucetUrl: "https://faucet.soo.network",
+  layer: 'L2',
   // Note: airdrop function doesn't work in web3.js for SOON
 };
 
@@ -34,6 +36,7 @@ export const soonMainnet: SoonChainConfig = {
   commitment: "confirmed",
   explorerUrl: "https://explorer.mainnet.soo.network",
   testnet: false,
+  layer: 'L2',
   // No faucetUrl for mainnet
 };
 
