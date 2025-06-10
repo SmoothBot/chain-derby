@@ -336,6 +336,10 @@ export function useChainRace() {
               throw lastError || new Error(`All Solana RPC endpoints failed for ${chain.id}`);
             } else if (isSoonChain(chain)) {
               // SOON chain balance check - similar to Solana since it's SVM-based
+              if (!soonPublicKey) {
+                throw new Error("SOON wallet not initialized");
+              }
+              
               try {
                 const connection = new Connection(chain.endpoint, chain.commitment);
                 const lamports = await connection.getBalance(soonPublicKey, chain.commitment);
@@ -768,6 +772,10 @@ export function useChainRace() {
             };
           } else if (isSoonChain(chain)) {
             // SOON chain data fetching - similar to Solana since it's SVM-based
+            if (!soonKeypair) {
+              throw new Error("SOON wallet not initialized");
+            }
+            
             try {
               const connection = new Connection(chain.endpoint, chain.commitment);
               // Test the connection by getting latest blockhash
@@ -817,7 +825,7 @@ export function useChainRace() {
                 signedTransactions
               };
             } catch (error) {
-              throw new Error(`SOON RPC failed for ${chain.id} during setup: ${error.message}`);
+              throw new Error(`SOON RPC failed for ${chain.id} during setup: ${error instanceof Error ? error.message : String(error)}`);
             }
           } else if (isFuelChain(chain)) {
             // Fuel chain data fetching
