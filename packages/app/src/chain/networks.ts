@@ -22,6 +22,31 @@ function getRpcUrls(chain: Chain, url: string | undefined) {
   }
 }
 
+export const hydraChainTestnet_ = {
+  id: 8844,
+  name: "Hydra Chain",
+  nativeCurrency: {
+    name: "Hydra Chain",
+    symbol: "HYDRA",
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: { http: ["https://rpc-testnet.hydrachain.org"] },
+    public: { http: ["https://rpc-testnet.hydrachain.org"] },
+  },
+  blockExplorers: {
+    default: {
+      name: "Skynet",
+      url: "https://skynet.hydrachain.org",
+    },
+  },
+  testnet: true,
+  color: "#0C8F8F",
+  logo: "/logos/hydra.png",
+  faucetUrl: "https://testnetapp.hydrachain.org/faucet/", // Mainnet has no faucet; leave empty or omit if not used
+  layer: 'L1' as const,
+} as const as ChainConfig;
+
 const riseTestnet_ = {
   ...riseTestnet,
   rpcUrls: getRpcUrls(riseTestnet, process.env.NEXT_PUBLIC_RISE_TESTNET_RPC_URL),
@@ -127,6 +152,7 @@ export const evmChains = [
   baseSepolia_, 
   somniaTestnet_,
   seiTestnet_,
+  hydraChainTestnet_,
   // Mainnets
   sonicMainnet,
   baseMainnet_,
