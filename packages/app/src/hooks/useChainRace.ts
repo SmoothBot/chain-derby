@@ -1498,20 +1498,19 @@ export function useChainRace() {
           }
 
           const aptos = currentChainData.aptos;
-          // Manage the sequence number internally
-          let aptosSeqNo: bigint | undefined = undefined;
 
           // Retrieves the sequence number for the Aptos account and sets it the first time
-          const getSequenceNumber = async (accountAddress: AccountAddress) => {
-            if (aptosSeqNo === undefined) {
+          const getSequenceNumber = async (accountAddress: AccountAddress, sequenceNo: bigint): Promise<bigint> => {
+            if (sequenceNo === -1n) {
               // Fetch the sequence number only once
               const accountInfo = await aptos.getAccountInfo({accountAddress});
-              aptosSeqNo = BigInt(accountInfo.sequence_number);
+              sequenceNo = BigInt(accountInfo.sequence_number);
             }
+            return sequenceNo;
           }
 
           // Builds and signs a transaction for Aptos
-          const buildAndSignTransaction = async (txIndex: number) => {
+          const buildAndSignTransaction = async (txIndex: number, aptosSeqNo: bigint) => {
             const transaction = await aptos.transaction.build.simple({
               sender: aptosAccount.accountAddress,
               data: {
@@ -1539,6 +1538,9 @@ export function useChainRace() {
             }
           }
 
+          // Manage the sequence number internally
+          let aptosSeqNo: bigint = -1n
+
           // Run the specified number of transactions
           for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
             try {
@@ -1552,10 +1554,10 @@ export function useChainRace() {
               const txStartTime = Date.now();
 
               // Fetch sequence number the first time, incrementing after
-              await getSequenceNumber(aptosAccount.accountAddress);
+              aptosSeqNo = await getSequenceNumber(aptosAccount.accountAddress, aptosSeqNo);
 
               // Sign and submit the transaction
-              const signedTxn = await buildAndSignTransaction(txIndex);
+              const signedTxn = await buildAndSignTransaction(txIndex, aptosSeqNo);
               const response = await aptos.transaction.submit.simple(signedTxn);
 
               // Wait for transaction confirmation
