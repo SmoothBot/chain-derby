@@ -18,7 +18,7 @@ import {
   Network,
   type SimpleTransaction,
   type AccountAuthenticator,
-  TypeTagAddress, TypeTagU64, U64, AccountAddress
+  TypeTagAddress, TypeTagU64, U64,
 } from "@aptos-labs/ts-sdk";
 import { getGeo } from "@/lib/geo";
 import { saveRaceResults } from "@/lib/api";
@@ -788,13 +788,51 @@ export function useChainRace() {
             });
             const aptos = new Aptos(config);
 
-            // For Aptos, we can't pre-sign transactions due to sequence number requirements
-            // Store the aptos client for fresh transaction creation during race
+            // Fetch sequence number for the account
+            const accountData = await aptos.getAccountInfo({ accountAddress: aptosAccount.accountAddress });
+            const sequenceNumber = BigInt(accountData.sequence_number);
+
+            // Pre-sign all transactions
+            const buildAndSignTransaction = async (txIndex: number, aptosSeqNo: bigint) => {
+              const transaction = await aptos.transaction.build.simple({
+                sender: aptosAccount.accountAddress,
+                data: {
+                  function: "0x1::aptos_account::transfer",
+                  functionArguments: [aptosAccount.accountAddress, new U64(0)], // Transfer 0 APT to self
+                  abi: {
+                    // ABI skips call to check arguments
+                    signers: 1,
+                    typeParameters: [],
+                    parameters: [new TypeTagAddress(), new TypeTagU64()]
+                  }
+                },
+                options: {
+                  accountSequenceNumber: aptosSeqNo! + BigInt(txIndex),
+                  gasUnitPrice: 100, // Default gas price, no reason to estimate
+                  maxGasAmount: 1000, // Set a max gas, no need for it to be too high
+                }
+              })
+              return {
+                transaction,
+                senderAuthenticator: aptos.transaction.sign({
+                  signer: aptosAccount,
+                  transaction,
+                })
+              }
+            }
+            const signedTransactionPromises = [];
+            for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
+              signedTransactionPromises.push(buildAndSignTransaction(txIndex, sequenceNumber));
+            }
+
+            const signedTransactions = await Promise.all(signedTransactionPromises)
+
+            // Store the aptos client for transaction submission during race
             return {
               chainId,
               nonce: 0,
               aptos,
-              signedTransactions: [], // Empty - will create fresh transactions during race
+              signedTransactions,
             };
           } else {
             throw new Error(`Unsupported chain type: ${chainId}`);
@@ -1492,54 +1530,12 @@ export function useChainRace() {
           // Aptos chain transaction processing
           const currentChainData = chainData.get(chainId);
 
-          if (!currentChainData || !currentChainData.aptos) {
+          if (!currentChainData || !currentChainData.aptos || !currentChainData.signedTransactions) {
             console.error(`No Aptos client data for chain ${chainId}`);
             return;
           }
 
           const aptos = currentChainData.aptos;
-
-          // Retrieves the sequence number for the Aptos account and sets it the first time
-          const getSequenceNumber = async (accountAddress: AccountAddress, sequenceNo: bigint): Promise<bigint> => {
-            if (sequenceNo === -1n) {
-              // Fetch the sequence number only once
-              const accountInfo = await aptos.getAccountInfo({accountAddress});
-              sequenceNo = BigInt(accountInfo.sequence_number);
-            }
-            return sequenceNo;
-          }
-
-          // Builds and signs a transaction for Aptos
-          const buildAndSignTransaction = async (txIndex: number, aptosSeqNo: bigint) => {
-            const transaction = await aptos.transaction.build.simple({
-              sender: aptosAccount.accountAddress,
-              data: {
-                function: "0x1::aptos_account::transfer",
-                functionArguments: [aptosAccount.accountAddress, new U64(0)], // Transfer 0 APT to self
-                abi: {
-                  // ABI skips call to check arguments
-                  signers: 1,
-                  typeParameters: [],
-                  parameters: [new TypeTagAddress(), new TypeTagU64()]
-                }
-              },
-              options: {
-                accountSequenceNumber: aptosSeqNo! + BigInt(txIndex),
-                gasUnitPrice: 100, // Default gas price, no reason to estimate
-                maxGasAmount: 1000, // Set a max gas, no need for it to be too high
-              }
-            })
-            return {
-              transaction,
-              senderAuthenticator: aptos.transaction.sign({
-                signer: aptosAccount,
-                transaction,
-              })
-            }
-          }
-
-          // Manage the sequence number internally
-          let aptosSeqNo: bigint = -1n
 
           // Run the specified number of transactions
           for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
@@ -1553,12 +1549,16 @@ export function useChainRace() {
               let txLatency = 0;
               const txStartTime = Date.now();
 
-              // Fetch sequence number the first time, incrementing after
-              aptosSeqNo = await getSequenceNumber(aptosAccount.accountAddress, aptosSeqNo);
-
               // Sign and submit the transaction
-              const signedTxn = await buildAndSignTransaction(txIndex, aptosSeqNo);
-              const response = await aptos.transaction.submit.simple(signedTxn);
+              const signedTransaction = currentChainData.signedTransactions[txIndex];
+              if (!signedTransaction || typeof signedTransaction !== "object") {
+                throw new Error(`No pre-signed transaction available for Aptos tx #${txIndex}`);
+              } else if (typeof signedTransaction === "object" && !("senderAuthenticator" in signedTransaction)) {
+                console.error(`Signed transaction for Aptos tx #${txIndex} is missing senderAuthenticator`);
+                return;
+              }
+
+              const response = await aptos.transaction.submit.simple(signedTransaction);
 
               // Wait for transaction confirmation
               await aptos.waitForTransaction({
