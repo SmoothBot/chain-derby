@@ -13,7 +13,7 @@ export function FundingPhase() {
   const { account, balances, checkBalances, isLoadingBalances, selectedChains, setSelectedChains, layerFilter, setLayerFilter, networkFilter, setNetworkFilter, getFilteredChains } = useChainRaceContext();
   const isMobile = useIsMobile();
   
-  // Format balance for display - handle EVM, Solana, and Fuel
+  // Format balance for display - handle EVM, Solana, SOON, and Fuel
   const formatBalance = (balance: bigint, chainId: number | string) => {
     if (typeof chainId === 'string' && chainId.includes('solana')) {
       // Solana balance formatting (lamports to SOL)
@@ -31,6 +31,22 @@ export function FundingPhase() {
         return solValue.toExponential(3);
       }
       return solValue.toFixed(6).replace(/\.?0+$/, '');
+    } else if (typeof chainId === 'string' && chainId.includes('soon')) {
+      // SOON balance formatting (lamports to ETH, since SOON uses ETH as native currency)
+      const ethValue = Number(balance) / LAMPORTS_PER_SOL; // SOON uses same decimals as Solana
+      if (isMobile) {
+        if (ethValue === 0) return '0.0';
+        if (ethValue < 0.0001) {
+          return ethValue.toFixed(8).replace(/\.?0+$/, '');
+        }
+        return ethValue.toFixed(4).replace(/\.?0+$/, '');
+      }
+      // Desktop formatting
+      if (ethValue === 0) return '0.0';
+      if (ethValue < 0.000001) {
+        return ethValue.toFixed(8).replace(/\.?0+$/, '');
+      }
+      return ethValue.toFixed(6).replace(/\.?0+$/, '');
     } else if (chainId === '0' || chainId === '9889') {
       // Fuel balance formatting (9 decimals)
       const ethValue = Number(balance) / 1e9; // Convert from 9 decimals
@@ -215,7 +231,8 @@ export function FundingPhase() {
                     </div>
                     <p className="text-sm text-gray-700 dark:text-gray-300">
                       {chainBalance ? `${formatBalance(balance, chain.id)} ${
-                        'nativeCurrency' in chain ? chain.nativeCurrency.symbol : 'SOL'
+                        'nativeCurrency' in chain ? chain.nativeCurrency.symbol : 
+                        (typeof chain.id === 'string' && chain.id.includes('solana')) ? 'SOL' : 'ETH'
                       }` : "Checking..."}
                     </p>
                   </div>
@@ -236,7 +253,8 @@ export function FundingPhase() {
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-blue-500 hover:text-blue-600"
-                        title={`Get ${'nativeCurrency' in chain ? chain.nativeCurrency.symbol : 'SOL'} from faucet`}
+                        title={`Get ${'nativeCurrency' in chain ? chain.nativeCurrency.symbol : 
+                          (typeof chain.id === 'string' && chain.id.includes('solana')) ? 'SOL' : 'ETH'} from faucet`}
                       >
                         <Droplets size={12} />
                         <span>Faucet</span>

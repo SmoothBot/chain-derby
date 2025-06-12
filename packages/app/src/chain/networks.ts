@@ -4,6 +4,7 @@ import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 import { sonicBlaze } from "./sonicblaze";
 import { fuelChains, type FuelChainConfig } from "@/fuel/config";
 import { aptosChains, type AptosChainConfig } from "@/aptos/config";
+import { soonChains, type SoonChainConfig } from "@/soon/config";
 
 export interface ChainConfig extends Chain {
   testnet: boolean;
@@ -133,11 +134,11 @@ export const evmChains = [
   seiMainnet_
 ];
 
-// All chains (EVM + Solana + Fuel + Aptos)
-export const allChains = [...evmChains, ...solanaChains, ...fuelChains, ...aptosChains];
+// All chains (EVM + Solana + Fuel + Aptos + SOON)
+export const allChains = [...evmChains, ...solanaChains, ...fuelChains, ...aptosChains, ...soonChains];
 
 // Backward compatibility - rename raceChains to evmChains
 export const raceChains = evmChains;
 
 // Export chain type union
-export type AnyChainConfig = ChainConfig | SolanaChainConfig | FuelChainConfig | AptosChainConfig;
+export type AnyChainConfig = ChainConfig | SolanaChainConfig | FuelChainConfig | AptosChainConfig | SoonChainConfig;
