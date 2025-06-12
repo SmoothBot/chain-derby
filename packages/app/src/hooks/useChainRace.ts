@@ -14,7 +14,14 @@ import type { SolanaChainConfig } from "@/solana/config";
 import type { FuelChainConfig } from "@/fuel/config";
 import type { AptosChainConfig } from "@/aptos/config";
 import type { SoonChainConfig } from "@/soon/config";
-import { Aptos, AptosConfig, Network, type SimpleTransaction, type AccountAuthenticator } from "@aptos-labs/ts-sdk";
+import {
+  Aptos,
+  AptosConfig,
+  Network,
+  type SimpleTransaction,
+  type AccountAuthenticator,
+  TypeTagAddress, TypeTagU64, U64,
+} from "@aptos-labs/ts-sdk";
 import { getGeo } from "@/lib/geo";
 import { saveRaceResults } from "@/lib/api";
 import { WalletUnlocked, bn, Provider, type TransactionRequest, ScriptTransactionRequest, type Coin, ResolvedOutput, OutputChange } from "fuels";
@@ -92,7 +99,7 @@ function isFuelChain(chain: AnyChainConfig): chain is FuelChainConfig {
 }
 
 function isAptosChain(chain: AnyChainConfig): chain is AptosChainConfig {
-  return 'network' in chain && typeof chain.network === 'string' && 
+  return 'network' in chain && typeof chain.network === 'string' &&
          ('id' in chain && typeof chain.id === 'string' && chain.id.startsWith('aptos-'));
 }
 
@@ -163,7 +170,7 @@ export function useChainRace() {
     }
     return 'Testnet'; // Default to testnet for safety
   });
-  
+
   const [selectedChains, setSelectedChains] = useState<(number | string)[]>(() => {
     // Load saved chain selection from localStorage if available
     if (typeof window !== 'undefined') {
@@ -234,7 +241,7 @@ export function useChainRace() {
           if (layerFilter !== 'L1') return false;
         }
       }
-      
+
       // Network filter (mainnet vs testnet) - no "Both" option
       if (isEvmChain(chain)) {
         const isTestnet = chain.testnet;
@@ -258,11 +265,11 @@ export function useChainRace() {
         if (networkFilter === 'Mainnet' && !isMainnet) return false;
         if (networkFilter === 'Testnet' && isMainnet) return false;
       }
-      
+
       return true;
     });
   }, [layerFilter, networkFilter]);
-  
+
   // Define checkBalances before using it in useEffect
   const checkBalances = useCallback(async () => {
     if (!account || !solanaReady || !solanaPublicKey || !fuelReady || !fuelWallet || !aptosReady || !aptosAccount) return;
@@ -375,7 +382,7 @@ export function useChainRace() {
               };
             } else if (isAptosChain(chain)) {
               // Aptos balance check
-              const config = new AptosConfig({ 
+              const config = new AptosConfig({
                 network: chain.network as Network,
                 fullnode: chain.rpcUrl,
               });
@@ -605,10 +612,10 @@ export function useChainRace() {
     if (!account || !privateKey || !solanaKeypair || !fuelWallet || !aptosAccount || status !== "ready") return;
 
     setStatus("racing");
-    
+
     // Filter chains based on layer filter AND selection (support both EVM and Solana)
     const filteredChains = getFilteredChains();
-    const activeChains = filteredChains.filter(chain => 
+    const activeChains = filteredChains.filter(chain =>
       selectedChains.includes(isEvmChain(chain) ? chain.id : chain.id)
     );
 
@@ -730,11 +737,11 @@ export function useChainRace() {
 
             // Pre-sign all Solana transactions
             const signedTransactions = [];
-            
+
             try {
               // Get the latest blockhash for all transactions
               const { blockhash } = await workingConnection.getLatestBlockhash(chain.commitment);
-              
+
               for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
                 try {
                   // Create transaction with unique transfer amount to avoid duplicate signatures
@@ -870,19 +877,57 @@ export function useChainRace() {
             };
           } else if (isAptosChain(chain)) {
             // Aptos chain data fetching
-            const config = new AptosConfig({ 
+            const config = new AptosConfig({
               network: (chain as AptosChainConfig).network as Network,
               fullnode: (chain as AptosChainConfig).rpcUrl,
             });
             const aptos = new Aptos(config);
 
-            // For Aptos, we can't pre-sign transactions due to sequence number requirements
-            // Store the aptos client for fresh transaction creation during race
+            // Fetch sequence number for the account
+            const accountData = await aptos.getAccountInfo({ accountAddress: aptosAccount.accountAddress });
+            const sequenceNumber = BigInt(accountData.sequence_number);
+
+            // Pre-sign all transactions
+            const buildAndSignTransaction = async (txIndex: number, aptosSeqNo: bigint) => {
+              const transaction = await aptos.transaction.build.simple({
+                sender: aptosAccount.accountAddress,
+                data: {
+                  function: "0x1::aptos_account::transfer",
+                  functionArguments: [aptosAccount.accountAddress, new U64(0)], // Transfer 0 APT to self
+                  abi: {
+                    // ABI skips call to check arguments
+                    signers: 1,
+                    typeParameters: [],
+                    parameters: [new TypeTagAddress(), new TypeTagU64()]
+                  }
+                },
+                options: {
+                  accountSequenceNumber: aptosSeqNo! + BigInt(txIndex),
+                  gasUnitPrice: 100, // Default gas price, no reason to estimate
+                  maxGasAmount: 1000, // Set a max gas, no need for it to be too high
+                }
+              })
+              return {
+                transaction,
+                senderAuthenticator: aptos.transaction.sign({
+                  signer: aptosAccount,
+                  transaction,
+                })
+              }
+            }
+            const signedTransactionPromises = [];
+            for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
+              signedTransactionPromises.push(buildAndSignTransaction(txIndex, sequenceNumber));
+            }
+
+            const signedTransactions = await Promise.all(signedTransactionPromises)
+
+            // Store the aptos client for transaction submission during race
             return {
               chainId,
               nonce: 0,
               aptos,
-              signedTransactions: [], // Empty - will create fresh transactions during race
+              signedTransactions,
             };
           } else {
             throw new Error(`Unsupported chain type: ${chainId}`);
@@ -980,7 +1025,7 @@ export function useChainRace() {
               const fallbackGasPrice = BigInt(
                 chain.id === 10143 ? 60000000000 : // Monad has higher gas requirements
                   chain.id === 8453 ? 2000000000 :   // Base mainnet
-                    chain.id === 6342 ? 3000000000 :   // MegaETH 
+                    chain.id === 6342 ? 3000000000 :   // MegaETH
                       chain.id === 17180 ? 1500000000 :  // Sonic
                         1000000000                         // Default fallback (1 gwei)
               );
@@ -1269,7 +1314,7 @@ export function useChainRace() {
               } else {
                 // Fallback: create fresh transaction if no pre-signed transaction available
                 console.warn(`No pre-signed transaction for Solana tx #${txIndex}, creating fresh transaction`);
-                
+
                 const transaction = new Transaction().add(
                   SystemProgram.transfer({
                     fromPubkey: solanaKeypair.publicKey,
@@ -1700,7 +1745,7 @@ export function useChainRace() {
           // Aptos chain transaction processing
           const currentChainData = chainData.get(chainId);
 
-          if (!currentChainData || !currentChainData.aptos) {
+          if (!currentChainData || !currentChainData.aptos || !currentChainData.signedTransactions) {
             console.error(`No Aptos client data for chain ${chainId}`);
             return;
           }
@@ -1719,30 +1764,23 @@ export function useChainRace() {
               let txLatency = 0;
               const txStartTime = Date.now();
 
-              // Create and sign fresh transaction for each execution
-              // This avoids sequence number issues with Aptos
-              
-              // Create a simple transfer transaction (0 APT to self)
-              const transaction = await aptos.transaction.build.simple({
-                sender: aptosAccount.accountAddress,
-                data: {
-                  function: "0x1::aptos_account::transfer",
-                  functionArguments: [aptosAccount.accountAddress, 0], // Transfer 0 APT to self
-                },
-              });
-
               // Sign and submit the transaction
-              const response = await aptos.transaction.submit.simple({
-                transaction,
-                senderAuthenticator: aptos.transaction.sign({
-                  signer: aptosAccount,
-                  transaction,
-                }),
-              });
+              const signedTransaction = currentChainData.signedTransactions[txIndex];
+              if (!signedTransaction || typeof signedTransaction !== "object") {
+                throw new Error(`No pre-signed transaction available for Aptos tx #${txIndex}`);
+              } else if (typeof signedTransaction === "object" && !("senderAuthenticator" in signedTransaction)) {
+                console.error(`Signed transaction for Aptos tx #${txIndex} is missing senderAuthenticator`);
+                return;
+              }
+
+              const response = await aptos.transaction.submit.simple(signedTransaction);
 
               // Wait for transaction confirmation
               await aptos.waitForTransaction({
                 transactionHash: response.hash,
+                options: {
+                  waitForIndexer: false // Unnecessary, no indexer calls made
+                }
               });
 
               // Calculate transaction latency
