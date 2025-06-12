@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Account, stark, ec, RpcProvider, hash, CallData } from "starknet";
+import {
+  Account,
+  stark,
+  ec,
+  RpcProvider,
+  hash,
+  CallData,
+} from "starknet";
 
 interface StarknetWalletState {
   privateKey: string | null;
@@ -13,8 +20,14 @@ interface StarknetWalletState {
 
 const STARKNET_STORAGE_KEY = "horse-race-starknet-wallet";
 
-// OpenZeppelin account class hash for Sepolia testnet
-const OZ_ACCOUNT_CLASS_HASH = "0x061dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f";
+// ✅ Latest OpenZeppelin account class hash (v0.8.1) for Sepolia
+const OZ_ACCOUNT_CLASS_HASH =
+  "0x061dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f";
+
+// ✅ Sepolia testnet RPC provider
+const provider = new RpcProvider({
+  nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_8",
+});
 
 export function useStarknetEmbeddedWallet() {
   const [walletState, setWalletState] = useState<StarknetWalletState>({
@@ -31,15 +44,8 @@ export function useStarknetEmbeddedWallet() {
       try {
         const { privateKey } = JSON.parse(storedWallet);
         const publicKey = ec.starkCurve.getStarkKey(privateKey);
-        
-        // Calculate account address
         const accountAddress = calculateAccountAddress(publicKey);
-        
-        // Create provider - using Sepolia testnet
-        const provider = new RpcProvider({
-          nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_8"
-        });
-        
+
         const account = new Account(provider, accountAddress, privateKey);
 
         setWalletState({
@@ -59,42 +65,30 @@ export function useStarknetEmbeddedWallet() {
   }, []);
 
   const calculateAccountAddress = (publicKey: string): string => {
-    // Calculate future address of the OpenZeppelin account
     const constructorCallData = CallData.compile({ publicKey });
-    const contractAddress = hash.calculateContractAddressFromHash(
-      publicKey,
+
+    const rawAddress = hash.calculateContractAddressFromHash(
+      BigInt(publicKey), // ✅ ensure this is a bigint
       OZ_ACCOUNT_CLASS_HASH,
       constructorCallData,
-      0
+      0n // deployer address is 0n
     );
-    return contractAddress;
+
+    // ✅ Pad the address to 66 characters (0x + 64 hex digits)
+    return `0x${rawAddress.replace(/^0x/, "").padStart(64, "0")}`;
   };
 
   const createNewWallet = () => {
     try {
-      // Generate new private key
       const privateKey = stark.randomAddress();
-      console.log("Generated private key:", privateKey);
-      
-      // Get public key from private key
       const publicKey = ec.starkCurve.getStarkKey(privateKey);
-      console.log("Generated public key:", publicKey);
-      
-      // Calculate account address
       const accountAddress = calculateAccountAddress(publicKey);
-      console.log("Pre-calculated account address:", accountAddress);
 
-      // Store private key
       localStorage.setItem(
         STARKNET_STORAGE_KEY,
         JSON.stringify({ privateKey })
       );
 
-      // Create provider
-      const provider = new RpcProvider({
-        nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_8"
-      });
-      
       const account = new Account(provider, accountAddress, privateKey);
 
       setWalletState({
@@ -104,42 +98,45 @@ export function useStarknetEmbeddedWallet() {
         isReady: true,
         account,
       });
+
+      console.log("🔐 New Starknet Wallet Created:");
+      console.log("Private Key:", privateKey);
+      console.log("Public Key:", publicKey);
+      console.log("Precomputed Account Address:", accountAddress);
     } catch (error) {
       console.error("Failed to create Starknet wallet:", error);
-      setWalletState(prev => ({ ...prev, isReady: true }));
+      setWalletState((prev) => ({ ...prev, isReady: true }));
     }
   };
 
   const deployAccount = async (): Promise<string | null> => {
-    if (!walletState.account || !walletState.publicKey) {
+    const { account, publicKey } = walletState;
+    if (!account || !publicKey) {
       console.error("Account or public key not available");
       return null;
     }
 
     try {
-      const constructorCallData = CallData.compile({ 
-        publicKey: walletState.publicKey 
-      });
+      const constructorCallData = CallData.compile({ publicKey });
 
       const deployAccountPayload = {
         classHash: OZ_ACCOUNT_CLASS_HASH,
         constructorCalldata: constructorCallData,
-        addressSalt: walletState.publicKey,
+        addressSalt: BigInt(publicKey), // ✅ must be BigInt
       };
 
-      const { transaction_hash, contract_address } = await walletState.account.deployAccount(
-        deployAccountPayload
-      );
+      const { transaction_hash, contract_address } =
+        await account.deployAccount(deployAccountPayload);
 
-      console.log("Account deployed:", contract_address);
-      console.log("Transaction hash:", transaction_hash);
+      console.log("🚀 Deployment tx hash:", transaction_hash);
+      console.log("📬 Contract deployed at:", contract_address);
 
-      // Wait for transaction confirmation
-      await walletState.account.provider.waitForTransaction(transaction_hash);
-      
+      await provider.waitForTransaction(transaction_hash);
+      console.log("✅ Account deployment confirmed");
+
       return transaction_hash;
     } catch (error) {
-      console.error("Failed to deploy account:", error);
+      console.error("❌ Failed to deploy account:", error);
       return null;
     }
   };
@@ -151,10 +148,10 @@ export function useStarknetEmbeddedWallet() {
 
   const fundAccount = async (amount: string = "0.001") => {
     if (!walletState.accountAddress) return;
-    
-    console.log(`Please fund your account address: ${walletState.accountAddress}`);
-    console.log(`You can use a faucet: https://starknet-faucet.vercel.app/`);
-    console.log(`Requested amount: ${amount} ETH`);
+
+    console.log(`💧 Fund your account at: ${walletState.accountAddress}`);
+    console.log(`Use Sepolia faucet: https://starknet-faucet.vercel.app/`);
+    console.log(`Suggested amount: ${amount} ETH`);
   };
 
   return {
