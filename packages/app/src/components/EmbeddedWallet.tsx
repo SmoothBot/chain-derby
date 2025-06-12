@@ -1,31 +1,96 @@
 "use client";
 
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Separator } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Separator,
+} from "@/components/ui";
 import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { useSolanaEmbeddedWallet } from "@/hooks/useSolanaEmbeddedWallet";
+import { useStarknetEmbeddedWallet } from "@/hooks/useStarknetEmbeddedWallet";
 import { useFuelEmbeddedWallet } from "@/hooks/useFuelEmbeddedWallet";
 import { useAptosEmbeddedWallet } from "@/hooks/useAptosEmbeddedWallet";
+
 import { CopyIcon, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
 export function EmbeddedWallet() {
   const { account, privateKey } = useChainRaceContext();
-  const { publicKey: solanaPublicKey, secret: solanaSecret, isReady: solanaReady } = useSolanaEmbeddedWallet();
-  const { address: fuelAddress, secret: fuelSecret, isReady: fuelReady } = useFuelEmbeddedWallet();
-  const { address: aptosAddress, privateKey: aptosPrivateKey, isReady: aptosReady } = useAptosEmbeddedWallet();
-  const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | null>(null);
+  const {
+    publicKey: solanaPublicKey,
+    secret: solanaSecret,
+    isReady: solanaReady,
+  } = useSolanaEmbeddedWallet();
+
+  const {
+    privateKey: starknetPrivateKey,
+    accountAddress: starknetAddress,
+    isReady: starknetReady,
+  } = useStarknetEmbeddedWallet();
+
+  const {
+    address: fuelAddress,
+    secret: fuelSecret,
+    isReady: fuelReady,
+  } = useFuelEmbeddedWallet();
+
+  const {
+    address: aptosAddress,
+    privateKey: aptosPrivateKey,
+    isReady: aptosReady,
+  } = useAptosEmbeddedWallet();
+
+  const [copied, setCopied] = useState<
+    | "address"
+    | "key"
+    | "sol-address"
+    | "sol-key"
+    | "fuel-address"
+    | "fuel-key"
+    | "aptos-address"
+    | "aptos-key"
+    | "starknet-address"
+    | "starknet-key"
+    | null
+  >(null);
+
   const [showKey, setShowKey] = useState(false);
   const [showSolanaKey, setShowSolanaKey] = useState(false);
   const [showFuelKey, setShowFuelKey] = useState(false);
   const [showAptosKey, setShowAptosKey] = useState(false);
-  
-  const copyToClipboard = (text: string, type: "address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key") => {
+  const [showStarknetKey, setShowStarknetKey] = useState(false);
+
+  const copyToClipboard = (
+    text: string,
+    type:
+      | "address"
+      | "key"
+      | "sol-address"
+      | "sol-key"
+      | "fuel-address"
+      | "fuel-key"
+      | "aptos-address"
+      | "aptos-key"
+      | "starknet-address"
+      | "starknet-key"
+  ) => {
     navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
   };
-  
-  if (!account || !privateKey || !solanaReady || !fuelReady || !aptosReady) {
+
+  if (
+    !account ||
+    !privateKey ||
+    !solanaReady ||
+    !fuelReady ||
+    !aptosReady ||
+    !starknetReady
+  ) {
     return (
       <Card className="w-full">
         <CardContent className="pt-6">
@@ -36,25 +101,29 @@ export function EmbeddedWallet() {
       </Card>
     );
   }
-  
+
   return (
     <Card className="w-full pt-8">
       <CardHeader className="space-y-5">
         <CardTitle>Your Embedded Wallets</CardTitle>
-        <CardDescription>Send native tokens to your wallet addresses.</CardDescription>
+        <CardDescription>
+          Send native tokens to your wallet addresses.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Ethereum Wallet Section */}
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">Ethereum Wallet</h3>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
+            <label className="text-sm font-medium text-muted-foreground">
+              Wallet Address
+            </label>
             <div className="flex items-center gap-2">
               <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
                 {account.address}
               </div>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={() => copyToClipboard(account.address, "address")}
               >
@@ -62,12 +131,18 @@ export function EmbeddedWallet() {
               </Button>
             </div>
           </div>
-          
+
           <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">Private Key (Do not share!)</label>
+            <label className="text-sm font-medium text-muted-foreground">
+              Private Key (Do not share!)
+            </label>
             <div className="flex items-center gap-2">
               <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
-                {showKey ? `${privateKey.substring(0, 18)}...${privateKey.substring(privateKey.length - 18)}` : "••••••••••••••••••••"}
+                {showKey
+                  ? `${privateKey.substring(0, 18)}...${privateKey.substring(
+                      privateKey.length - 18
+                    )}`
+                  : "••••••••••••••••••••"}
               </div>
               <Button
                 variant="ghost"
@@ -76,8 +151,8 @@ export function EmbeddedWallet() {
               >
                 {showKey ? <EyeOff size={18} /> : <Eye size={18} />}
               </Button>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={() => copyToClipboard(privateKey, "key")}
               >
@@ -87,7 +162,6 @@ export function EmbeddedWallet() {
           </div>
         </div>
 
-        {/* Separator */}
         <Separator />
 
         {/* Solana Wallet Section */}
@@ -95,26 +169,37 @@ export function EmbeddedWallet() {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Solana Wallet</h3>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
+              <label className="text-sm font-medium text-muted-foreground">
+                Wallet Address
+              </label>
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
                   {solanaPublicKey.toBase58()}
                 </div>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
-                  onClick={() => copyToClipboard(solanaPublicKey.toBase58(), "sol-address")}
+                  onClick={() =>
+                    copyToClipboard(solanaPublicKey.toBase58(), "sol-address")
+                  }
                 >
                   {copied === "sol-address" ? "Copied!" : <CopyIcon size={18} />}
                 </Button>
               </div>
             </div>
-            
+
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Private Key (Do not share!)</label>
+              <label className="text-sm font-medium text-muted-foreground">
+                Private Key (Do not share!)
+              </label>
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
-                  {showSolanaKey ? `${solanaSecret.substring(0, 18)}...${solanaSecret.substring(solanaSecret.length - 18)}` : "••••••••••••••••••••"}
+                  {showSolanaKey
+                    ? `${solanaSecret.substring(
+                        0,
+                        18
+                      )}...${solanaSecret.substring(solanaSecret.length - 18)}`
+                    : "••••••••••••••••••••"}
                 </div>
                 <Button
                   variant="ghost"
@@ -123,8 +208,8 @@ export function EmbeddedWallet() {
                 >
                   {showSolanaKey ? <EyeOff size={18} /> : <Eye size={18} />}
                 </Button>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
                   onClick={() => copyToClipboard(solanaSecret, "sol-key")}
                 >
@@ -135,7 +220,6 @@ export function EmbeddedWallet() {
           </div>
         )}
 
-        {/* Separator */}
         <Separator />
 
         {/* Fuel Wallet Section */}
@@ -143,13 +227,15 @@ export function EmbeddedWallet() {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Fuel Wallet</h3>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
+              <label className="text-sm font-medium text-muted-foreground">
+                Wallet Address
+              </label>
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
                   {fuelAddress}
                 </div>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
                   onClick={() => copyToClipboard(fuelAddress, "fuel-address")}
                 >
@@ -157,12 +243,19 @@ export function EmbeddedWallet() {
                 </Button>
               </div>
             </div>
-            
+
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Private Key (Do not share!)</label>
+              <label className="text-sm font-medium text-muted-foreground">
+                Private Key (Do not share!)
+              </label>
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
-                  {showFuelKey ? `${fuelSecret.substring(0, 18)}...${fuelSecret.substring(fuelSecret.length - 18)}` : "••••••••••••••••••••"}
+                  {showFuelKey
+                    ? `${fuelSecret.substring(
+                        0,
+                        18
+                      )}...${fuelSecret.substring(fuelSecret.length - 18)}`
+                    : "••••••••••••••••••••"}
                 </div>
                 <Button
                   variant="ghost"
@@ -171,8 +264,8 @@ export function EmbeddedWallet() {
                 >
                   {showFuelKey ? <EyeOff size={18} /> : <Eye size={18} />}
                 </Button>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
                   onClick={() => copyToClipboard(fuelSecret, "fuel-key")}
                 >
@@ -183,7 +276,6 @@ export function EmbeddedWallet() {
           </div>
         )}
 
-        {/* Separator */}
         <Separator />
 
         {/* Aptos Wallet Section */}
@@ -191,26 +283,39 @@ export function EmbeddedWallet() {
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Aptos Wallet</h3>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
+              <label className="text-sm font-medium text-muted-foreground">
+                Wallet Address
+              </label>
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
                   {aptosAddress}
                 </div>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
-                  onClick={() => copyToClipboard(aptosAddress, "aptos-address")}
+                  onClick={() =>
+                    copyToClipboard(aptosAddress, "aptos-address")
+                  }
                 >
                   {copied === "aptos-address" ? "Copied!" : <CopyIcon size={18} />}
                 </Button>
               </div>
             </div>
-            
+
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Private Key (Do not share!)</label>
+              <label className="text-sm font-medium text-muted-foreground">
+                Private Key (Do not share!)
+              </label>
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
-                  {showAptosKey ? `${aptosPrivateKey.substring(0, 18)}...${aptosPrivateKey.substring(aptosPrivateKey.length - 18)}` : "••••••••••••••••••••"}
+                  {showAptosKey
+                    ? `${aptosPrivateKey.substring(
+                        0,
+                        18
+                      )}...${aptosPrivateKey.substring(
+                        aptosPrivateKey.length - 18
+                      )}`
+                    : "••••••••••••••••••••"}
                 </div>
                 <Button
                   variant="ghost"
@@ -219,12 +324,76 @@ export function EmbeddedWallet() {
                 >
                   {showAptosKey ? <EyeOff size={18} /> : <Eye size={18} />}
                 </Button>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
-                  onClick={() => copyToClipboard(aptosPrivateKey, "aptos-key")}
+                  onClick={() =>
+                    copyToClipboard(aptosPrivateKey, "aptos-key")
+                  }
                 >
                   {copied === "aptos-key" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <Separator />
+
+        {/* Starknet Wallet Section */}
+        {starknetAddress && starknetPrivateKey && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Starknet Wallet</h3>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">
+                Wallet Address
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {starknetAddress}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() =>
+                    copyToClipboard(starknetAddress, "starknet-address")
+                  }
+                >
+                  {copied === "starknet-address" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">
+                Private Key (Do not share!)
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {showStarknetKey
+                    ? `${starknetPrivateKey.substring(
+                        0,
+                        18
+                      )}...${starknetPrivateKey.substring(
+                        starknetPrivateKey.length - 18
+                      )}`
+                    : "••••••••••••••••••••"}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowStarknetKey(!showStarknetKey)}
+                >
+                  {showStarknetKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() =>
+                    copyToClipboard(starknetPrivateKey, "starknet-key")
+                  }
+                >
+                  {copied === "starknet-key" ? "Copied!" : <CopyIcon size={18} />}
                 </Button>
               </div>
             </div>
