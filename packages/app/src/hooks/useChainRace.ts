@@ -12,6 +12,7 @@ import { Connection, SystemProgram, Transaction, sendAndConfirmTransaction } fro
 import type { SolanaChainConfig } from "@/solana/config";
 import type { FuelChainConfig } from "@/fuel/config";
 import type { AptosChainConfig } from "@/aptos/config";
+import type {StarknetChainConfig} from "@/starknet/config";
 import {
   Aptos,
   AptosConfig,
@@ -94,6 +95,10 @@ function isSolanaChain(chain: AnyChainConfig): chain is SolanaChainConfig {
 
 function isFuelChain(chain: AnyChainConfig): chain is FuelChainConfig {
   return chain.name === "Fuel Testnet" || chain.name === "Fuel Mainnet";
+}
+
+function isStarknetChain(chain: AnyChainConfig): chain is StarknetChainConfig {
+  return chain.name === "Starknet Sepolia Testnet";
 }
 
 function isAptosChain(chain: AnyChainConfig): chain is AptosChainConfig {
@@ -226,6 +231,8 @@ export function useChainRace() {
           if (chain.layer !== layerFilter) return false;
         } else if (isAptosChain(chain)) {
           if (chain.layer !== layerFilter) return false;
+        } else if (isStarknetChain(chain)) {
+          if (chain.layer !== layerFilter) return false;
         } else {
           // For Solana chains, we'll consider them as L1 for filtering purposes
           if (layerFilter !== 'L1') return false;
@@ -245,7 +252,11 @@ export function useChainRace() {
         const isTestnet = chain.testnet;
         if (networkFilter === 'Testnet' && !isTestnet) return false;
         if (networkFilter === 'Mainnet' && isTestnet) return false;
-      } else {
+      }else if (isStarknetChain(chain)) {
+        const isTestnet = chain.testnet;
+        if (networkFilter === 'Testnet' && !isTestnet) return false;
+        if (networkFilter === 'Mainnet' && isTestnet) return false;
+      }  else {
         // For Solana chains, check if it's mainnet or testnet based on the id
         const isMainnet = chain.id === 'solana-mainnet';
         if (networkFilter === 'Mainnet' && !isMainnet) return false;
@@ -265,8 +276,6 @@ export function useChainRace() {
     try {
       // Check balances for all chains regardless of selection
       const activeChains = allChains;
-
-
       // Add a small delay to avoid overwhelming network requests on page load
       await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -354,6 +363,22 @@ export function useChainRace() {
 
               // Minimum balance threshold: 0.001 APT (100,000 octas since APT uses 8 decimals)
               const hasBalance = balance > BigInt(100_000);
+
+              return {
+                chainId,
+                balance,
+                hasBalance,
+              };
+            } else if (isStarknetChain(chain)) {
+              // EVM chain balance check
+              const client = createPublicClient({
+                chain,
+                transport: http(),
+              });
+
+              balance = await client.getBalance({ address: account.address });
+              // Reduced balance threshold for testing (0.001 tokens instead of 0.01)
+              const hasBalance = balance > BigInt(1e14);
 
               return {
                 chainId,
