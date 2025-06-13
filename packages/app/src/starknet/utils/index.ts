@@ -30,7 +30,7 @@ export async function getSTRKBalance() {
   try {
     const balance = await strkContract.call("balanceOf", [WALLET_ADDRESS]);
     console.log(`STRK Balance for ${WALLET_ADDRESS}:`, balance?.balance?.toString());
-    return Number(balance.balance)/ 10 ** 18; // Convert from wei to STRK 
+    return Number(balance?.balance); // Convert from wei to STRK 
   } catch (error) {
     console.error("Error fetching STRK balance:", error.message);
   }
