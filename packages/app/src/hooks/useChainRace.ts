@@ -13,6 +13,7 @@ import type { SolanaChainConfig } from "@/solana/config";
 import type { FuelChainConfig } from "@/fuel/config";
 import type { AptosChainConfig } from "@/aptos/config";
 import type {StarknetChainConfig} from "@/starknet/config";
+import {getSTRKBalance} from "@/starknet/utils/index";
 import {
   Aptos,
   AptosConfig,
@@ -24,6 +25,7 @@ import {
 import { getGeo } from "@/lib/geo";
 import { saveRaceResults } from "@/lib/api";
 import { WalletUnlocked, bn, Provider, type TransactionRequest, ScriptTransactionRequest, type Coin, ResolvedOutput, OutputChange } from "fuels";
+import { sepolia } from "@starknet-react/chains";
 
 export type ChainRaceStatus = "idle" | "funding" | "ready" | "racing" | "finished";
 
@@ -221,8 +223,12 @@ export function useChainRace() {
   }, [networkFilter]);
 
   // Get filtered chains based on layer filter and network filter
+
+
   const getFilteredChains = useCallback(() => {
     return allChains.filter(chain => {
+
+      console.log({chain})
       // Layer filter
       if (layerFilter !== 'Both') {
         if (isEvmChain(chain)) {
@@ -370,18 +376,12 @@ export function useChainRace() {
                 hasBalance,
               };
             } else if (isStarknetChain(chain)) {
-              // EVM chain balance check
-              const client = createPublicClient({
-                chain,
-                transport: http(),
-              });
-
-              balance = await client.getBalance({ address: account.address });
-              // Reduced balance threshold for testing (0.001 tokens instead of 0.01)
+              
+              balance = await getSTRKBalance();
               const hasBalance = balance > BigInt(1e14);
-
+              console.log(`Starknet balance for ${chain.name}:`, balance);
               return {
-                chainId,
+                chainId:sepolia.id.toString(),
                 balance,
                 hasBalance,
               };

@@ -42,6 +42,7 @@
     "culori": "^4.0.1",
     "decimal.js": "^10.5.0",
     "fuels": "^0.101.1",
+    "got": "^14.4.7",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",
     "json5": "^2.2.3",

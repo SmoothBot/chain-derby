@@ -1,5 +1,5 @@
-import { Contract, Provider } from "starknet";
-
+import { Contract, Provider, RpcProvider } from "starknet";
+const SEPOLIA_RPC_URL = "https://starknet-sepolia.public.blastapi.io/rpc/v0_8";
 // STRK token contract address on Starknet Mainnet
 const STRK_TOKEN_ADDRESS =
   "0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D";
@@ -11,6 +11,7 @@ const STRK_ABI = [
     name: "balanceOf",
     inputs: [{ name: "account", type: "felt" }],
     outputs: [{ name: "balance", type: "felt" }],
+    stateMutability: "view",
   },
 ];
 
@@ -18,21 +19,19 @@ const STRK_ABI = [
 const WALLET_ADDRESS =
   "0x04c3aaa63a76D6764844123710CAb79Ea187566872920e30e2dF36d4d7E70888";
 
-async function getSTRKBalance() {
-  const provider = new Provider({
-    nodeUrl: "Starknet Sepolia Testnet",
+export async function getSTRKBalance() {
+  const provider = new RpcProvider({
+    nodeUrl: SEPOLIA_RPC_URL,
   });
 
+  console.log({ provider });
   const strkContract = new Contract(STRK_ABI, STRK_TOKEN_ADDRESS, provider);
-
+  console.log({ strkContract });
   try {
-    const { balance } = await strkContract.balanceOf(WALLET_ADDRESS);
-    console.log(`STRK Token Contract: ${STRK_TOKEN_ADDRESS}`);
-    console.log(`Wallet Address: ${WALLET_ADDRESS}`);
-    console.log(`STRK Balance: ${balance.toString()}`);
+    const balance = await strkContract.call("balanceOf", [WALLET_ADDRESS]);
+    console.log(`STRK Balance for ${WALLET_ADDRESS}:`, balance?.balance?.toString());
+    return Number(balance.balance)/ 10 ** 18; // Convert from wei to STRK 
   } catch (error) {
     console.error("Error fetching STRK balance:", error.message);
   }
 }
-
-getSTRKBalance();

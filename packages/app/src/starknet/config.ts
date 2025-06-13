@@ -25,7 +25,7 @@ export interface StarknetChainConfig {
     network: sepolia.network, // Use the Starknet Sepolia network type
     rpcUrl: process.env.NEXT_PUBLIC_APTOS_TESTNET_RPC_URL || 'https://starknet-sepolia.blastapi.io',
     indexerUrl: 'https://indexer-testnet.staging.gcp.aptosdev.com/v1/graphql',
-    faucetUrl: 'https://aptos.dev/en/network/faucet',
+    faucetUrl: 'https://starknet-faucet.vercel.app/',
     explorerUrl: 'https://sepolia.voyager.online',
     nativeCurrency: {
       name: 'Ether',
@@ -33,8 +33,8 @@ export interface StarknetChainConfig {
       decimals: 18,
     },
     testnet: true,
-    color: '#4ADED6',
-    logo: '/logos/aptos.png',
+    color: 'orange',
+    logo: '/logos/starknet.png',
     layer: 'L2' as const,
   };
 
