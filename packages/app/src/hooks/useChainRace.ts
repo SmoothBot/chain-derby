@@ -1,69 +1,103 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createPublicClient, createWalletClient, http, type Hex, type Chain, TransactionReceipt } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  type Hex,
+  type Chain,
+  TransactionReceipt,
+} from "viem";
 import { allChains, type AnyChainConfig } from "@/chain/networks";
 import { useEmbeddedWallet } from "./useEmbeddedWallet";
 import { useSolanaEmbeddedWallet } from "./useSolanaEmbeddedWallet";
 import { useFuelEmbeddedWallet } from "./useFuelEmbeddedWallet";
 import { useAptosEmbeddedWallet } from "./useAptosEmbeddedWallet";
+import { useStarknetEmbeddedWallet } from "./useStarknetEmbeddedWallet";
 import { createSyncPublicClient, syncTransport } from "rise-shred-client";
-import { Connection, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
+import {
+  Connection,
+  SystemProgram,
+  Transaction,
+  sendAndConfirmTransaction,
+} from "@solana/web3.js";
 import type { SolanaChainConfig } from "@/solana/config";
 import type { FuelChainConfig } from "@/fuel/config";
 import type { AptosChainConfig } from "@/aptos/config";
-import type {StarknetChainConfig} from "@/starknet/config";
-import {getSTRKBalance} from "@/starknet/utils/index";
+import type { StarknetChainConfig } from "@/starknet/config";
+import { getSTRKBalance } from "@/starknet/utils/index";
 import {
   Aptos,
   AptosConfig,
   Network,
   type SimpleTransaction,
   type AccountAuthenticator,
-  TypeTagAddress, TypeTagU64, U64,
+  TypeTagAddress,
+  TypeTagU64,
+  U64,
 } from "@aptos-labs/ts-sdk";
 import { getGeo } from "@/lib/geo";
 import { saveRaceResults } from "@/lib/api";
-import { WalletUnlocked, bn, Provider, type TransactionRequest, ScriptTransactionRequest, type Coin, ResolvedOutput, OutputChange } from "fuels";
+import {
+  WalletUnlocked,
+  bn,
+  Provider,
+  type TransactionRequest,
+  ScriptTransactionRequest,
+  type Coin,
+  ResolvedOutput,
+  OutputChange,
+} from "fuels";
 import { sepolia } from "@starknet-react/chains";
-
-export type ChainRaceStatus = "idle" | "funding" | "ready" | "racing" | "finished";
+import { Contract, RpcProvider } from "starknet";
+const SEPOLIA_RPC_URL = "https://starknet-sepolia.public.blastapi.io/rpc/v0_8";
+const STRK_TOKEN_ADDRESS =
+  "0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D";
+export type ChainRaceStatus =
+  | "idle"
+  | "funding"
+  | "ready"
+  | "racing"
+  | "finished";
 
 export interface ChainBalance {
-  chainId: number | string;  // Support both EVM (number) and Solana (string) chain IDs
+  chainId: number | string; // Support both EVM (number) and Solana (string) chain IDs
   balance: bigint;
   hasBalance: boolean;
   error?: string;
-}
+} 
+
+
 
 export interface RaceResult {
-  chainId: number | string;  // Support both EVM (number) and Solana (string) chain IDs
+  chainId: number | string; // Support both EVM (number) and Solana (string) chain IDs
   name: string;
   color: string;
-  logo?: string;             // Path to the chain logo
+  logo?: string; // Path to the chain logo
   status: "pending" | "racing" | "success" | "error";
-  txHash?: Hex;              // EVM transaction hash
-  signature?: string;        // Solana transaction signature
+  txHash?: Hex; // EVM transaction hash
+  signature?: string; // Solana transaction signature
   error?: string;
   position?: number;
-  txCompleted: number;       // Count of completed transactions
-  txTotal: number;           // Total transactions required
-  txLatencies: number[];     // Array of individual transaction latencies in ms
-  averageLatency?: number;   // Average transaction latency
-  totalLatency?: number;     // Total latency of all transactions combined
+  txCompleted: number; // Count of completed transactions
+  txTotal: number; // Total transactions required
+  txLatencies: number[]; // Array of individual transaction latencies in ms
+  averageLatency?: number; // Average transaction latency
+  totalLatency?: number; // Total latency of all transactions combined
 }
 
 export type TransactionCount = 1 | 5 | 10 | 20;
 
-export type LayerFilter = 'L1' | 'L2' | 'Both';
+export type LayerFilter = "L1" | "L2" | "Both";
 
-export type NetworkFilter = 'Mainnet' | 'Testnet';
+export type NetworkFilter = "Mainnet" | "Testnet";
 
 export interface RaceSessionPayload {
   title: string;
   walletAddress: string;
   transactionCount: number;
-  status: 'completed';
+  status: "completed";
   city?: string;
   region?: string;
   country?: string;
@@ -73,7 +107,7 @@ export interface RaceSessionPayload {
 export interface ChainResultPayload {
   chainId: number;
   chainName: string;
-  txLatencies: number[];   // raw per-tx times
+  txLatencies: number[]; // raw per-tx times
   averageLatency: number;
   totalLatency: number;
   status: string;
@@ -87,12 +121,20 @@ const LOCAL_STORAGE_LAYER_FILTER = "horse-race-layer-filter";
 const LOCAL_STORAGE_NETWORK_FILTER = "horse-race-network-filter";
 
 // Helper functions to distinguish chain types
-function isEvmChain(chain: AnyChainConfig): chain is Chain & { testnet: boolean; color: string; logo: string; faucetUrl?: string; layer: 'L1' | 'L2'; } {
-  return 'id' in chain && typeof chain.id === 'number';
+function isEvmChain(
+  chain: AnyChainConfig
+): chain is Chain & {
+  testnet: boolean;
+  color: string;
+  logo: string;
+  faucetUrl?: string;
+  layer: "L1" | "L2";
+} {
+  return "id" in chain && typeof chain.id === "number";
 }
 
 function isSolanaChain(chain: AnyChainConfig): chain is SolanaChainConfig {
-  return 'cluster' in chain;
+  return "cluster" in chain;
 }
 
 function isFuelChain(chain: AnyChainConfig): chain is FuelChainConfig {
@@ -104,8 +146,13 @@ function isStarknetChain(chain: AnyChainConfig): chain is StarknetChainConfig {
 }
 
 function isAptosChain(chain: AnyChainConfig): chain is AptosChainConfig {
-  return 'network' in chain && typeof chain.network === 'string' &&
-         ('id' in chain && typeof chain.id === 'string' && chain.id.startsWith('aptos-'));
+  return (
+    "network" in chain &&
+    typeof chain.network === "string" &&
+    "id" in chain &&
+    typeof chain.id === "string" &&
+    chain.id.startsWith("aptos-")
+  );
 }
 
 // Helper function to get fallback RPC endpoints for Solana
@@ -113,124 +160,144 @@ function getSolanaFallbackEndpoints(chain: SolanaChainConfig): string[] {
   const fallbackEndpoints = [
     chain.endpoint,
     // Fallback RPC endpoints for Solana
-    ...(chain.id === 'solana-mainnet' ? [
-      'https://api.mainnet-beta.solana.com',
-      'https://solana-api.projectserum.com',
-      'https://rpc.ankr.com/solana',
-    ] : chain.id === 'solana-devnet' ? [
-      'https://api.devnet.solana.com',
-    ] : [
-      'https://api.testnet.solana.com',
-    ])
+    ...(chain.id === "solana-mainnet"
+      ? [
+          "https://api.mainnet-beta.solana.com",
+          "https://solana-api.projectserum.com",
+          "https://rpc.ankr.com/solana",
+        ]
+      : chain.id === "solana-devnet"
+      ? ["https://api.devnet.solana.com"]
+      : ["https://api.testnet.solana.com"]),
   ];
   return fallbackEndpoints;
 }
 
 export function useChainRace() {
   const { account, privateKey, isReady, resetWallet } = useEmbeddedWallet();
-  const { publicKey: solanaPublicKey, keypair: solanaKeypair, isReady: solanaReady } = useSolanaEmbeddedWallet();
+  const {walletState:starknetWallet} = useStarknetEmbeddedWallet();
+  const {
+    publicKey: solanaPublicKey,
+    keypair: solanaKeypair,
+    isReady: solanaReady,
+  } = useSolanaEmbeddedWallet();
   const { wallet: fuelWallet, isReady: fuelReady } = useFuelEmbeddedWallet();
-  const { account: aptosAccount, address: aptosAddress, isReady: aptosReady } = useAptosEmbeddedWallet();
+  const {
+    account: aptosAccount,
+    address: aptosAddress,
+    isReady: aptosReady,
+  } = useAptosEmbeddedWallet();
   const [status, setStatus] = useState<ChainRaceStatus>("idle");
   const [balances, setBalances] = useState<ChainBalance[]>([]);
   const [results, setResults] = useState<RaceResult[]>([]);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
-  const [transactionCount, setTransactionCount] = useState<TransactionCount>(() => {
-    // Load saved transaction count from localStorage if available
-    // if (typeof window !== 'undefined') {
-    //   const savedCount = localStorage.getItem(LOCAL_STORAGE_TX_COUNT);
-    //   if (savedCount) {
-    //     const count = parseInt(savedCount, 10) as TransactionCount;
-    //     if ([1, 5, 10, 20].includes(count)) {
-    //       return count;
-    //     }
-    //   }
-    // }
-    return 10;
-  });
+  const [transactionCount, setTransactionCount] = useState<TransactionCount>(
+    () => {
+      // Load saved transaction count from localStorage if available
+      // if (typeof window !== 'undefined') {
+      //   const savedCount = localStorage.getItem(LOCAL_STORAGE_TX_COUNT);
+      //   if (savedCount) {
+      //     const count = parseInt(savedCount, 10) as TransactionCount;
+      //     if ([1, 5, 10, 20].includes(count)) {
+      //       return count;
+      //     }
+      //   }
+      // }
+      return 10;
+    }
+  );
 
   const [layerFilter, setLayerFilter] = useState<LayerFilter>(() => {
     // Load saved layer filter from localStorage if available
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const savedFilter = localStorage.getItem(LOCAL_STORAGE_LAYER_FILTER);
-      if (savedFilter && ['L1', 'L2', 'Both'].includes(savedFilter)) {
+      if (savedFilter && ["L1", "L2", "Both"].includes(savedFilter)) {
         return savedFilter as LayerFilter;
       }
     }
-    return 'Both';
+    return "Both";
   });
 
   const [networkFilter, setNetworkFilter] = useState<NetworkFilter>(() => {
     // Load saved network filter from localStorage if available
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const savedFilter = localStorage.getItem(LOCAL_STORAGE_NETWORK_FILTER);
-      if (savedFilter && ['Mainnet', 'Testnet'].includes(savedFilter)) {
+      if (savedFilter && ["Mainnet", "Testnet"].includes(savedFilter)) {
         return savedFilter as NetworkFilter;
       }
     }
-    return 'Testnet'; // Default to testnet for safety
+    return "Testnet"; // Default to testnet for safety
   });
 
-  const [selectedChains, setSelectedChains] = useState<(number | string)[]>(() => {
-    // Load saved chain selection from localStorage if available
-    if (typeof window !== 'undefined') {
-      const savedChains = localStorage.getItem(LOCAL_STORAGE_SELECTED_CHAINS);
-      if (savedChains) {
-        try {
-          const parsed = JSON.parse(savedChains) as (number | string)[];
-          // Validate that all chains in the saved list are actually valid chains
-          const validChainIds: (number | string)[] = allChains.map(chain => isEvmChain(chain) ? chain.id : chain.id);
-          const validSavedChains = parsed.filter(id => validChainIds.includes(id));
+  const [selectedChains, setSelectedChains] = useState<(number | string)[]>(
+    () => {
+      // Load saved chain selection from localStorage if available
+      if (typeof window !== "undefined") {
+        const savedChains = localStorage.getItem(LOCAL_STORAGE_SELECTED_CHAINS);
+        if (savedChains) {
+          try {
+            const parsed = JSON.parse(savedChains) as (number | string)[];
+            // Validate that all chains in the saved list are actually valid chains
+            const validChainIds: (number | string)[] = allChains.map((chain) =>
+              isEvmChain(chain) ? chain.id : chain.id
+            );
+            const validSavedChains = parsed.filter((id) =>
+              validChainIds.includes(id)
+            );
 
-          if (validSavedChains.length > 0) {
-            return validSavedChains;
+            if (validSavedChains.length > 0) {
+              return validSavedChains;
+            }
+          } catch (e) {
+            console.error("Failed to parse saved chain selection:", e);
           }
-        } catch (e) {
-          console.error('Failed to parse saved chain selection:', e);
         }
       }
+      // Default to all chains (EVM + Solana)
+      return allChains.map((chain) =>
+        isEvmChain(chain) ? chain.id : chain.id
+      );
     }
-    // Default to all chains (EVM + Solana)
-    return allChains.map(chain => isEvmChain(chain) ? chain.id : chain.id);
-  });
+  );
 
   // Effect to save chain selection to localStorage when it changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && selectedChains.length > 0) {
-      localStorage.setItem(LOCAL_STORAGE_SELECTED_CHAINS, JSON.stringify(selectedChains));
+    if (typeof window !== "undefined" && selectedChains.length > 0) {
+      localStorage.setItem(
+        LOCAL_STORAGE_SELECTED_CHAINS,
+        JSON.stringify(selectedChains)
+      );
     }
   }, [selectedChains]);
 
   // Effect to save transaction count to localStorage when it changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       localStorage.setItem(LOCAL_STORAGE_TX_COUNT, transactionCount.toString());
     }
   }, [transactionCount]);
 
   // Effect to save layer filter to localStorage when it changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       localStorage.setItem(LOCAL_STORAGE_LAYER_FILTER, layerFilter);
     }
   }, [layerFilter]);
 
   // Effect to save network filter to localStorage when it changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       localStorage.setItem(LOCAL_STORAGE_NETWORK_FILTER, networkFilter);
     }
   }, [networkFilter]);
 
   // Get filtered chains based on layer filter and network filter
 
-
   const getFilteredChains = useCallback(() => {
-    return allChains.filter(chain => {
-
-      console.log({chain})
+    return allChains.filter((chain) => {
+      console.log({ chain });
       // Layer filter
-      if (layerFilter !== 'Both') {
+      if (layerFilter !== "Both") {
         if (isEvmChain(chain)) {
           if (chain.layer !== layerFilter) return false;
         } else if (isFuelChain(chain)) {
@@ -241,32 +308,32 @@ export function useChainRace() {
           if (chain.layer !== layerFilter) return false;
         } else {
           // For Solana chains, we'll consider them as L1 for filtering purposes
-          if (layerFilter !== 'L1') return false;
+          if (layerFilter !== "L1") return false;
         }
       }
 
       // Network filter (mainnet vs testnet) - no "Both" option
       if (isEvmChain(chain)) {
         const isTestnet = chain.testnet;
-        if (networkFilter === 'Testnet' && !isTestnet) return false;
-        if (networkFilter === 'Mainnet' && isTestnet) return false;
+        if (networkFilter === "Testnet" && !isTestnet) return false;
+        if (networkFilter === "Mainnet" && isTestnet) return false;
       } else if (isFuelChain(chain)) {
         const isTestnet = chain.testnet;
-        if (networkFilter === 'Testnet' && !isTestnet) return false;
-        if (networkFilter === 'Mainnet' && isTestnet) return false;
+        if (networkFilter === "Testnet" && !isTestnet) return false;
+        if (networkFilter === "Mainnet" && isTestnet) return false;
       } else if (isAptosChain(chain)) {
         const isTestnet = chain.testnet;
-        if (networkFilter === 'Testnet' && !isTestnet) return false;
-        if (networkFilter === 'Mainnet' && isTestnet) return false;
-      }else if (isStarknetChain(chain)) {
+        if (networkFilter === "Testnet" && !isTestnet) return false;
+        if (networkFilter === "Mainnet" && isTestnet) return false;
+      } else if (isStarknetChain(chain)) {
         const isTestnet = chain.testnet;
-        if (networkFilter === 'Testnet' && !isTestnet) return false;
-        if (networkFilter === 'Mainnet' && isTestnet) return false;
-      }  else {
+        if (networkFilter === "Testnet" && !isTestnet) return false;
+        if (networkFilter === "Mainnet" && isTestnet) return false;
+      } else {
         // For Solana chains, check if it's mainnet or testnet based on the id
-        const isMainnet = chain.id === 'solana-mainnet';
-        if (networkFilter === 'Mainnet' && !isMainnet) return false;
-        if (networkFilter === 'Testnet' && isMainnet) return false;
+        const isMainnet = chain.id === "solana-mainnet";
+        if (networkFilter === "Mainnet" && !isMainnet) return false;
+        if (networkFilter === "Testnet" && isMainnet) return false;
       }
 
       return true;
@@ -275,7 +342,16 @@ export function useChainRace() {
 
   // Define checkBalances before using it in useEffect
   const checkBalances = useCallback(async () => {
-    if (!account || !solanaReady || !solanaPublicKey || !fuelReady || !fuelWallet || !aptosReady || !aptosAccount) return;
+    if (
+      !account ||
+      !solanaReady ||
+      !solanaPublicKey ||
+      !fuelReady ||
+      !fuelWallet ||
+      !aptosReady ||
+      !aptosAccount
+    )
+      return;
 
     setIsLoadingBalances(true);
 
@@ -283,15 +359,18 @@ export function useChainRace() {
       // Check balances for all chains regardless of selection
       const activeChains = allChains;
       // Add a small delay to avoid overwhelming network requests on page load
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       const balancePromises = activeChains.map(async (chain) => {
         // Function to attempt a balance check with retries
-        const attemptBalanceCheck = async (retryCount = 0, maxRetries = 3): Promise<{
-          chainId: number | string,
-          balance: bigint,
-          hasBalance: boolean,
-          error?: string
+        const attemptBalanceCheck = async (
+          retryCount = 0,
+          maxRetries = 3
+        ): Promise<{
+          chainId: number | string;
+          balance: bigint;
+          hasBalance: boolean;
+          error?: string;
         }> => {
           try {
             let balance: bigint;
@@ -321,7 +400,10 @@ export function useChainRace() {
               for (const endpoint of fallbackEndpoints) {
                 try {
                   const connection = new Connection(endpoint, chain.commitment);
-                  const lamports = await connection.getBalance(solanaPublicKey, chain.commitment);
+                  const lamports = await connection.getBalance(
+                    solanaPublicKey,
+                    chain.commitment
+                  );
 
                   // Convert lamports to bigint for consistency with EVM
                   balance = BigInt(lamports);
@@ -334,14 +416,20 @@ export function useChainRace() {
                     hasBalance,
                   };
                 } catch (endpointError) {
-                  console.warn(`Solana RPC ${endpoint} failed for ${chain.id}:`, endpointError);
+                  console.warn(
+                    `Solana RPC ${endpoint} failed for ${chain.id}:`,
+                    endpointError
+                  );
                   lastError = endpointError;
                   continue;
                 }
               }
 
               // If all endpoints failed, throw the last error
-              throw lastError || new Error(`All Solana RPC endpoints failed for ${chain.id}`);
+              throw (
+                lastError ||
+                new Error(`All Solana RPC endpoints failed for ${chain.id}`)
+              );
             } else if (isFuelChain(chain)) {
               // Fuel balance check
               const provider = new Provider(chain.rpcUrls.public.http[0]);
@@ -365,7 +453,11 @@ export function useChainRace() {
               });
               const aptos = new Aptos(config);
 
-              const balance = BigInt(await aptos.getAccountAPTAmount({accountAddress: aptosAccount.accountAddress}));
+              const balance = BigInt(
+                await aptos.getAccountAPTAmount({
+                  accountAddress: aptosAccount.accountAddress,
+                })
+              );
 
               // Minimum balance threshold: 0.001 APT (100,000 octas since APT uses 8 decimals)
               const hasBalance = balance > BigInt(100_000);
@@ -376,12 +468,11 @@ export function useChainRace() {
                 hasBalance,
               };
             } else if (isStarknetChain(chain)) {
-              
               balance = await getSTRKBalance();
               const hasBalance = balance > BigInt(1e14);
               console.log(`Starknet balance for ${chain.name}:`, balance);
               return {
-                chainId:sepolia.id.toString(),
+                chainId: sepolia.id.toString(),
                 balance,
                 hasBalance,
               };
@@ -389,17 +480,23 @@ export function useChainRace() {
               throw new Error(`Unsupported chain type: ${chainId}`);
             }
           } catch (error) {
-            console.error(`Failed to get balance for chain ${isEvmChain(chain) ? chain.id : chain.id} (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
+            console.error(
+              `Failed to get balance for chain ${
+                isEvmChain(chain) ? chain.id : chain.id
+              } (attempt ${retryCount + 1}/${maxRetries + 1}):`,
+              error
+            );
 
             // Retry logic
             if (retryCount < maxRetries) {
               // Exponential backoff: 1s, 2s, 4s, etc.
               const backoffTime = 1000 * Math.pow(2, retryCount);
-              await new Promise(resolve => setTimeout(resolve, backoffTime));
+              await new Promise((resolve) => setTimeout(resolve, backoffTime));
               return attemptBalanceCheck(retryCount + 1, maxRetries);
             }
 
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            const errorMessage =
+              error instanceof Error ? error.message : "Unknown error";
             return {
               chainId: isEvmChain(chain) ? chain.id : chain.id,
               balance: BigInt(0),
@@ -411,36 +508,50 @@ export function useChainRace() {
 
         // Wrap in a timeout to ensure the promise resolves eventually
         const timeoutPromise = new Promise<{
-          chainId: number | string,
-          balance: bigint,
-          hasBalance: boolean,
-          error?: string
+          chainId: number | string;
+          balance: bigint;
+          hasBalance: boolean;
+          error?: string;
         }>((_, reject) => {
-          setTimeout(() => reject(new Error(`RPC request timed out for ${chain.name}`)), 30000);
+          setTimeout(
+            () => reject(new Error(`RPC request timed out for ${chain.name}`)),
+            30000
+          );
         });
 
         // Race the balance check with the timeout
-        return Promise.race([attemptBalanceCheck(), timeoutPromise])
-          .catch(error => {
-            console.error(`Ultimate failure checking balance for ${chain.name}:`, error);
+        return Promise.race([attemptBalanceCheck(), timeoutPromise]).catch(
+          (error) => {
+            console.error(
+              `Ultimate failure checking balance for ${chain.name}:`,
+              error
+            );
             return {
               chainId: isEvmChain(chain) ? chain.id : chain.id,
               balance: BigInt(0),
               hasBalance: false,
-              error: error instanceof Error
-                ? `Request failed: ${error.message}`
-                : "Unknown error checking balance",
+              error:
+                error instanceof Error
+                  ? `Request failed: ${error.message}`
+                  : "Unknown error checking balance",
             };
-          });
+          }
+        );
       });
 
       const newBalances = await Promise.all(balancePromises);
 
       // Log any errors that occurred during balance checks
-      newBalances.forEach(balance => {
+      newBalances.forEach((balance) => {
         if (balance.error) {
-          const chain = allChains.find(c => (isEvmChain(c) ? c.id : c.id) === balance.chainId);
-          console.warn(`Error checking balance for ${chain?.name || balance.chainId}: ${balance.error}`);
+          const chain = allChains.find(
+            (c) => (isEvmChain(c) ? c.id : c.id) === balance.chainId
+          );
+          console.warn(
+            `Error checking balance for ${chain?.name || balance.chainId}: ${
+              balance.error
+            }`
+          );
         }
       });
 
@@ -450,15 +561,19 @@ export function useChainRace() {
       setBalances(newBalances);
 
       // Only consider selected chains for determining if all are funded
-      const selectedBalances = newBalances.filter(b =>
+      const selectedBalances = newBalances.filter((b) =>
         selectedChains.includes(b.chainId)
       );
 
       // If all selected chains have balance, set status to ready
-      const allSelectedFunded = selectedBalances.length > 0 && selectedBalances.every(b => b.hasBalance);
+      const allSelectedFunded =
+        selectedBalances.length > 0 &&
+        selectedBalances.every((b) => b.hasBalance);
 
       // Only proceed with FUNDED chains
-      const fundedChains = selectedBalances.filter(b => b.hasBalance).map(b => b.chainId);
+      const fundedChains = selectedBalances
+        .filter((b) => b.hasBalance)
+        .map((b) => b.chainId);
 
       // Only update status if not in racing or finished state
       if (status !== "racing" && status !== "finished") {
@@ -478,11 +593,32 @@ export function useChainRace() {
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [account, solanaPublicKey, solanaReady, fuelWallet, fuelReady, aptosAccount, aptosReady, status, selectedChains]);
+  }, [
+    account,
+    solanaPublicKey,
+    solanaReady,
+    fuelWallet,
+    fuelReady,
+    aptosAccount,
+    aptosReady,
+    status,
+    selectedChains,
+  ]);
 
   // Effect to check balances automatically when wallet is ready
   useEffect(() => {
-    if (isReady && solanaReady && account && solanaPublicKey && fuelReady && fuelWallet && aptosReady && aptosAccount && status !== "racing" && status !== "finished") {
+    if (
+      isReady &&
+      solanaReady &&
+      account &&
+      solanaPublicKey &&
+      fuelReady &&
+      fuelWallet &&
+      aptosReady &&
+      aptosAccount &&
+      status !== "racing" &&
+      status !== "finished"
+    ) {
       // Add a small delay to ensure everything is fully initialized
       const timer = setTimeout(() => {
         checkBalances();
@@ -490,39 +626,57 @@ export function useChainRace() {
 
       return () => clearTimeout(timer);
     }
-  }, [isReady, solanaReady, account, solanaPublicKey, fuelWallet, fuelReady, aptosReady, aptosAccount, status, checkBalances]);
+  }, [
+    isReady,
+    solanaReady,
+    account,
+    solanaPublicKey,
+    fuelWallet,
+    fuelReady,
+    aptosReady,
+    aptosAccount,
+    status,
+    checkBalances,
+  ]);
 
   // Effect to save race results when race finishes
   useEffect(() => {
     const saveResults = async () => {
-      if (status === 'finished' && results.length > 0 && account) {
+      if (status === "finished" && results.length > 0 && account) {
         try {
-          const isDevelopment = process.env.NODE_ENV === 'development';
+          const isDevelopment = process.env.NODE_ENV === "development";
 
           if (isDevelopment) {
-            console.log('🏁 [Chain Derby] Race finished! Preparing to save results...');
-            console.log('🔍 [Chain Derby] Results data:', results);
-            console.log('👤 [Chain Derby] Account:', account?.address);
-            console.log('🔢 [Chain Derby] Transaction count:', transactionCount);
+            console.log(
+              "🏁 [Chain Derby] Race finished! Preparing to save results..."
+            );
+            console.log("🔍 [Chain Derby] Results data:", results);
+            console.log("👤 [Chain Derby] Account:", account?.address);
+            console.log(
+              "🔢 [Chain Derby] Transaction count:",
+              transactionCount
+            );
           }
 
           const geo = await getGeo();
 
           if (isDevelopment) {
-            console.log('🌍 [Chain Derby] Geo location:', geo);
+            console.log("🌍 [Chain Derby] Geo location:", geo);
           }
 
           // Convert results to the API payload format
-          const chainResults: ChainResultPayload[] = results.map(result => {
+          const chainResults: ChainResultPayload[] = results.map((result) => {
             // Convert string chain IDs to numeric IDs for API compatibility
             let numericChainId: number;
-            if (typeof result.chainId === 'string') {
-              if (result.chainId.includes('solana')) {
+            if (typeof result.chainId === "string") {
+              if (result.chainId.includes("solana")) {
                 numericChainId = 999999; // Solana chains get ID 999999
-              } else if (result.chainId.includes('aptos-testnet')) {
+              } else if (result.chainId.includes("aptos-testnet")) {
                 numericChainId = 999998; // Aptos testnet gets ID 999998
-              } else if (result.chainId.includes('aptos-mainnet')) {
+              } else if (result.chainId.includes("aptos-mainnet")) {
                 numericChainId = 999997; // Aptos mainnet gets ID 999997
+              } else if (result.chainId.includes("starknet")) {
+                numericChainId = 10000000;
               } else {
                 numericChainId = 999996; // Other string IDs get 999996
               }
@@ -542,14 +696,17 @@ export function useChainRace() {
           });
 
           if (isDevelopment) {
-            console.log('⛓️ [Chain Derby] Processed chain results:', chainResults);
+            console.log(
+              "⛓️ [Chain Derby] Processed chain results:",
+              chainResults
+            );
           }
 
           const payload: RaceSessionPayload = {
             title: `Chain Derby Race - ${new Date().toISOString()}`,
             walletAddress: account.address,
             transactionCount,
-            status: 'completed',
+            status: "completed",
             city: geo.city,
             region: geo.region,
             country: geo.country,
@@ -557,20 +714,23 @@ export function useChainRace() {
           };
 
           if (isDevelopment) {
-            console.log('📋 [Chain Derby] Final payload prepared:', payload);
-            console.log('🚀 [Chain Derby] Initiating API call...');
+            console.log("📋 [Chain Derby] Final payload prepared:", payload);
+            console.log("🚀 [Chain Derby] Initiating API call...");
           }
 
           await saveRaceResults(payload);
 
           if (isDevelopment) {
-            console.log('🎉 [Chain Derby] Race results saved successfully!');
+            console.log("🎉 [Chain Derby] Race results saved successfully!");
           }
         } catch (error) {
-          const isDevelopment = process.env.NODE_ENV === 'development';
+          const isDevelopment = process.env.NODE_ENV === "development";
 
           if (isDevelopment) {
-            console.error('❌ [Chain Derby] Failed to save race results:', error);
+            console.error(
+              "❌ [Chain Derby] Failed to save race results:",
+              error
+            );
           }
           // Silently handle API failures - don't impact user experience
         }
@@ -596,28 +756,48 @@ export function useChainRace() {
 
   // Start the race across selected chains
   const startRace = async () => {
-    if (!account || !privateKey || !solanaKeypair || !fuelWallet || !aptosAccount || status !== "ready") return;
+    if (
+      !account ||
+      !privateKey ||
+      !solanaKeypair ||
+      !fuelWallet ||
+      !aptosAccount ||
+      status !== "ready"
+    )
+      return;
 
     setStatus("racing");
 
     // Filter chains based on layer filter AND selection (support both EVM and Solana)
     const filteredChains = getFilteredChains();
-    const activeChains = filteredChains.filter(chain =>
+    const activeChains = filteredChains.filter((chain) =>
       selectedChains.includes(isEvmChain(chain) ? chain.id : chain.id)
     );
 
     // Pre-fetch all chain data needed for transactions
-    const chainData = new Map<number | string, {
-      nonce?: number;
-      chainId: number | string;
-      gasPrice?: bigint;
-      feeData?: bigint;
-      blockData?: unknown;
-      signedTransactions?: (string | TransactionRequest | { transaction: SimpleTransaction; senderAuthenticator: AccountAuthenticator } | Buffer | null)[]; // Store pre-signed transactions, which may be null
-      connection?: Connection; // For Solana chains
-      aptos?: Aptos; // For Aptos chains
-      wallet?: WalletUnlocked; // For Fuel chains
-    }>();
+    const chainData = new Map<
+      number | string,
+      {
+        nonce?: number;
+        chainId: number | string;
+        gasPrice?: bigint;
+        feeData?: bigint;
+        blockData?: unknown;
+        signedTransactions?: (
+          | string
+          | TransactionRequest
+          | {
+              transaction: SimpleTransaction;
+              senderAuthenticator: AccountAuthenticator;
+            }
+          | Buffer
+          | null
+        )[]; // Store pre-signed transactions, which may be null
+        connection?: Connection; // For Solana chains
+        aptos?: Aptos; // For Aptos chains
+        wallet?: WalletUnlocked; // For Fuel chains
+      }
+    >();
 
     try {
       // Fetch chain data in parallel for selected chains
@@ -640,22 +820,28 @@ export function useChainRace() {
               }),
 
               // Get current fee data and double it for better confirmation chances
-              client.getGasPrice().then(gasPrice => {
-                const doubledGasPrice = gasPrice * BigInt(3);
-                return doubledGasPrice;
-              }).catch(() => {
-                // Fallback gas prices based on known chain requirements
-                const fallbackGasPrice = BigInt(
-                  chain.id === 10143 ? 60000000000 : // Monad has higher gas requirements
-                    chain.id === 8453 ? 2000000000 :   // Base mainnet
-                      chain.id === 17180 ? 1500000000 :  // Sonic
-                        1000000000                         // Default fallback (1 gwei)
-                );
-                return fallbackGasPrice;
-              }),
+              client
+                .getGasPrice()
+                .then((gasPrice) => {
+                  const doubledGasPrice = gasPrice * BigInt(3);
+                  return doubledGasPrice;
+                })
+                .catch(() => {
+                  // Fallback gas prices based on known chain requirements
+                  const fallbackGasPrice = BigInt(
+                    chain.id === 10143
+                      ? 60000000000 // Monad has higher gas requirements
+                      : chain.id === 8453
+                      ? 2000000000 // Base mainnet
+                      : chain.id === 17180
+                      ? 1500000000 // Sonic
+                      : 1000000000 // Default fallback (1 gwei)
+                  );
+                  return fallbackGasPrice;
+                }),
 
               // Get latest block to ensure we have chain state
-              client.getBlock().catch(() => null)
+              client.getBlock().catch(() => null),
             ]);
 
             // Create wallet client for transaction signing
@@ -674,7 +860,7 @@ export function useChainRace() {
                   gasPrice: feeData,
                   nonce: nonce + txIndex,
                   chainId: chain.id,
-                  data: '0x' as const, // Use const assertion for hex string
+                  data: "0x" as const, // Use const assertion for hex string
                 };
 
                 const signedTx = await walletClient.signTransaction(txParams);
@@ -685,7 +871,10 @@ export function useChainRace() {
 
                 signedTransactions.push(signedTx);
               } catch (signError) {
-                console.error(`Error signing tx #${txIndex} for ${chain.name}:`, signError);
+                console.error(
+                  `Error signing tx #${txIndex} for ${chain.name}:`,
+                  signError
+                );
                 // Push a placeholder so the array length still matches txIndex
                 signedTransactions.push(null);
               }
@@ -697,7 +886,7 @@ export function useChainRace() {
               gasPrice: feeData,
               feeData,
               blockData,
-              signedTransactions
+              signedTransactions,
             };
           } else if (isSolanaChain(chain)) {
             // Solana chain data fetching - try fallback endpoints to find working RPC
@@ -713,13 +902,18 @@ export function useChainRace() {
                 console.log(`Using Solana RPC ${endpoint} for ${chain.id}`);
                 break;
               } catch (endpointError) {
-                console.warn(`Solana RPC ${endpoint} failed for ${chain.id} during setup:`, endpointError);
+                console.warn(
+                  `Solana RPC ${endpoint} failed for ${chain.id} during setup:`,
+                  endpointError
+                );
                 continue;
               }
             }
 
             if (!workingConnection) {
-              throw new Error(`All Solana RPC endpoints failed for ${chain.id} during setup`);
+              throw new Error(
+                `All Solana RPC endpoints failed for ${chain.id} during setup`
+              );
             }
 
             // Pre-sign all Solana transactions
@@ -727,7 +921,9 @@ export function useChainRace() {
 
             try {
               // Get the latest blockhash for all transactions
-              const { blockhash } = await workingConnection.getLatestBlockhash(chain.commitment);
+              const { blockhash } = await workingConnection.getLatestBlockhash(
+                chain.commitment
+              );
 
               for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
                 try {
@@ -750,19 +946,25 @@ export function useChainRace() {
                   const serializedTx = transaction.serialize();
                   signedTransactions.push(serializedTx);
                 } catch (signError) {
-                  console.error(`Error signing Solana tx #${txIndex} for ${chain.id}:`, signError);
+                  console.error(
+                    `Error signing Solana tx #${txIndex} for ${chain.id}:`,
+                    signError
+                  );
                   signedTransactions.push(null);
                 }
               }
             } catch (blockhashError) {
-              console.error(`Error getting blockhash for Solana ${chain.id}:`, blockhashError);
+              console.error(
+                `Error getting blockhash for Solana ${chain.id}:`,
+                blockhashError
+              );
             }
 
             return {
               chainId,
               nonce: 0, // Not applicable for Solana
               connection: workingConnection,
-              signedTransactions
+              signedTransactions,
             };
           } else if (isFuelChain(chain)) {
             // Fuel chain data fetching
@@ -774,7 +976,7 @@ export function useChainRace() {
 
             // Find UTXOs with sufficient balance (greater than 10000)
             const coins = walletCoins.coins as Coin[];
-            const validUtxos = coins.filter(coin => {
+            const validUtxos = coins.filter((coin) => {
               const amount = coin.amount.toNumber(); // Convert BN to number
               return amount > 10000;
             });
@@ -788,14 +990,20 @@ export function useChainRace() {
             try {
               // Create transaction request with selected UTXO
               const initialScriptRequest = new ScriptTransactionRequest({
-                script: "0x"
+                script: "0x",
               });
               initialScriptRequest.maxFee = bn(100);
               initialScriptRequest.addCoinInput(validUtxos[0]);
-              const initialSignedTx = await wallet.populateTransactionWitnessesSignature(initialScriptRequest);
+              const initialSignedTx =
+                await wallet.populateTransactionWitnessesSignature(
+                  initialScriptRequest
+                );
               signedTransactions.push(initialSignedTx);
             } catch (signError) {
-              console.error(`Error signing first tx for Fuel chain:`, signError);
+              console.error(
+                `Error signing first tx for Fuel chain:`,
+                signError
+              );
               signedTransactions.push(null);
             }
 
@@ -814,11 +1022,16 @@ export function useChainRace() {
             const aptos = new Aptos(config);
 
             // Fetch sequence number for the account
-            const accountData = await aptos.getAccountInfo({ accountAddress: aptosAccount.accountAddress });
+            const accountData = await aptos.getAccountInfo({
+              accountAddress: aptosAccount.accountAddress,
+            });
             const sequenceNumber = BigInt(accountData.sequence_number);
 
             // Pre-sign all transactions
-            const buildAndSignTransaction = async (txIndex: number, aptosSeqNo: bigint) => {
+            const buildAndSignTransaction = async (
+              txIndex: number,
+              aptosSeqNo: bigint
+            ) => {
               const transaction = await aptos.transaction.build.simple({
                 sender: aptosAccount.accountAddress,
                 data: {
@@ -828,29 +1041,33 @@ export function useChainRace() {
                     // ABI skips call to check arguments
                     signers: 1,
                     typeParameters: [],
-                    parameters: [new TypeTagAddress(), new TypeTagU64()]
-                  }
+                    parameters: [new TypeTagAddress(), new TypeTagU64()],
+                  },
                 },
                 options: {
                   accountSequenceNumber: aptosSeqNo! + BigInt(txIndex),
                   gasUnitPrice: 100, // Default gas price, no reason to estimate
                   maxGasAmount: 1000, // Set a max gas, no need for it to be too high
-                }
-              })
+                },
+              });
               return {
                 transaction,
                 senderAuthenticator: aptos.transaction.sign({
                   signer: aptosAccount,
                   transaction,
-                })
-              }
-            }
+                }),
+              };
+            };
             const signedTransactionPromises = [];
             for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
-              signedTransactionPromises.push(buildAndSignTransaction(txIndex, sequenceNumber));
+              signedTransactionPromises.push(
+                buildAndSignTransaction(txIndex, sequenceNumber)
+              );
             }
 
-            const signedTransactions = await Promise.all(signedTransactionPromises)
+            const signedTransactions = await Promise.all(
+              signedTransactionPromises
+            );
 
             // Store the aptos client for transaction submission during race
             return {
@@ -859,20 +1076,89 @@ export function useChainRace() {
               aptos,
               signedTransactions,
             };
+          } else if (isStarknetChain(chain)) {
+            const provider = new RpcProvider({
+              nodeUrl: SEPOLIA_RPC_URL,
+            });
+
+            console.log(
+              `Fetching Starknet data for ${chain.name}...`
+            );
+         
+            const starknetAccount = starknetWallet.accountAddress;
+
+            // Fetch the current nonce
+            const nonceResponse = await provider.getNonceForAddress(
+              starknetAccount
+            );
+            const startingNonce = BigInt(nonceResponse);
+
+            const buildAndSignStarknetTransaction = async (
+              txIndex: number,
+              baseNonce: bigint
+            ) => {
+              const nonce = baseNonce + BigInt(txIndex);
+
+              // Dummy transaction: transfer 0 STRK to self
+              const calldata = [starknetAccount, "0"]; // transfer to self, amount 0
+
+              const tx = {
+                contractAddress: STRK_TOKEN_ADDRESS,
+                entrypoint: "transfer",
+                calldata,
+                nonce,
+                maxFee: "0x3B9ACA00",
+              };
+
+              const signedTx = await starknetAccount.signTransaction(tx);
+
+              return {
+                transaction: tx,
+                signedTransaction: signedTx,
+              };
+            };
+
+            const signedTransactionPromises = [];
+            for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
+              signedTransactionPromises.push(
+                buildAndSignStarknetTransaction(txIndex, startingNonce)
+              );
+            }
+
+            const signedTransactions = await Promise.all(
+              signedTransactionPromises
+            );
+
+            return {
+              chainId,
+              nonce: 0,
+              starknet: {
+                provider,
+                account: starknetAccount,
+              },
+              signedTransactions,
+            };
           } else {
             throw new Error(`Unsupported chain type: ${chainId}`);
           }
         } catch (fetchError) {
-          console.error(`Failed to get chain data for ${chain.name}:`, fetchError);
+          console.error(
+            `Failed to get chain data for ${chain.name}:`,
+            fetchError
+          );
 
           if (isEvmChain(chain)) {
             // Use specific fallback gas prices based on chain
             const fallbackGasPrice = BigInt(
-              chain.id === 10143 ? 60000000000 : // Monad has higher gas requirements
-                chain.id === 8453 ? 2000000000 :   // Base mainnet
-                  chain.id === 17180 ? 1500000000 :  // Sonic
-                    chain.id === 6342 ? 3000000000 :   // MegaETH
-                      1000000000                         // Default fallback (1 gwei)
+              chain.id === 10143
+                ? 60000000000 // Monad has higher gas requirements
+                : chain.id === 8453
+                ? 2000000000 // Base mainnet
+                : chain.id === 17180
+                ? 1500000000 // Sonic
+                : chain.id === 6342
+                ? 3000000000 // MegaETH
+                : 1000000000 // Default fallback (1 gwei)
             );
 
             return {
@@ -902,7 +1188,7 @@ export function useChainRace() {
     }
 
     // Reset results for active chains only
-    const initialResults = activeChains.map(chain => ({
+    const initialResults = activeChains.map((chain) => ({
       chainId: isEvmChain(chain) ? chain.id : chain.id,
       name: chain.name,
       color: chain.color,
@@ -921,27 +1207,27 @@ export function useChainRace() {
 
       try {
         // Update status to racing for this chain
-        setResults(prev =>
-          prev.map(r =>
-            r.chainId === chainId
-              ? { ...r, status: "racing" }
-              : r
+        setResults((prev) =>
+          prev.map((r) =>
+            r.chainId === chainId ? { ...r, status: "racing" } : r
           )
         );
 
         if (isEvmChain(chain)) {
           // EVM chain transaction processing
-          const publicClient = chain.id !== 11155931 ?
-            createPublicClient({
-              chain,
-              transport: http(),
-            }) : null;
+          const publicClient =
+            chain.id !== 11155931
+              ? createPublicClient({
+                  chain,
+                  transport: http(),
+                })
+              : null;
 
           // Run the specified number of transactions
           for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
             try {
               // Skip if chain already had an error
-              const currentState = results.find(r => r.chainId === chainId);
+              const currentState = results.find((r) => r.chainId === chainId);
               if (currentState?.status === "error") {
                 break;
               }
@@ -953,21 +1239,26 @@ export function useChainRace() {
               // Get pre-fetched chain data including pre-signed transactions
               // Using more specific fallback gas prices if chain data isn't available
               const fallbackGasPrice = BigInt(
-                chain.id === 10143 ? 60000000000 : // Monad has higher gas requirements
-                  chain.id === 8453 ? 2000000000 :   // Base mainnet
-                    chain.id === 6342 ? 3000000000 :   // MegaETH
-                      chain.id === 17180 ? 1500000000 :  // Sonic
-                        1000000000                         // Default fallback (1 gwei)
+                chain.id === 10143
+                  ? 60000000000 // Monad has higher gas requirements
+                  : chain.id === 8453
+                  ? 2000000000 // Base mainnet
+                  : chain.id === 6342
+                  ? 3000000000 // MegaETH
+                  : chain.id === 17180
+                  ? 1500000000 // Sonic
+                  : 1000000000 // Default fallback (1 gwei)
               );
 
               const currentChainData = chainData.get(chainId) || {
                 nonce: 0,
                 gasPrice: fallbackGasPrice,
-                signedTransactions: []
+                signedTransactions: [],
               };
 
               // Get the pre-signed transaction for this index
-              const hasPreSignedTx = currentChainData.signedTransactions &&
+              const hasPreSignedTx =
+                currentChainData.signedTransactions &&
                 txIndex < currentChainData.signedTransactions.length &&
                 currentChainData.signedTransactions[txIndex] !== null;
 
@@ -975,7 +1266,6 @@ export function useChainRace() {
               const signedTransaction = hasPreSignedTx
                 ? currentChainData.signedTransactions![txIndex]
                 : null;
-
 
               if (chain.id === 11155931) {
                 // For RISE testnet, use the sync client
@@ -987,18 +1277,23 @@ export function useChainRace() {
                 // Use pre-signed transaction if available, otherwise sign now
                 const txToSend = signedTransaction;
 
-
                 // Check if we have a valid transaction
-                if (!txToSend || typeof txToSend !== 'string') {
-                  throw new Error(`Invalid transaction format for RISE tx #${txIndex}`);
+                if (!txToSend || typeof txToSend !== "string") {
+                  throw new Error(
+                    `Invalid transaction format for RISE tx #${txIndex}`
+                  );
                 }
 
                 // Send the transaction and get receipt in one call
-                const receipt = await RISESyncClient.sendRawTransactionSync(txToSend as `0x${string}`);
+                const receipt = await RISESyncClient.sendRawTransactionSync(
+                  txToSend as `0x${string}`
+                );
 
                 // Verify receipt
                 if (!receipt || !receipt.transactionHash) {
-                  throw new Error(`RISE sync transaction sent but no receipt returned for tx #${txIndex}`);
+                  throw new Error(
+                    `RISE sync transaction sent but no receipt returned for tx #${txIndex}`
+                  );
                 }
                 txHash = receipt.transactionHash;
                 // Calculate transaction latency for RISE
@@ -1011,26 +1306,35 @@ export function useChainRace() {
                 const txToSend = signedTransaction;
 
                 // Check if we have a valid transaction
-                if (!txToSend || typeof txToSend !== 'string') {
-                  throw new Error(`Invalid transaction format for MegaETH tx #${txIndex}`);
+                if (!txToSend || typeof txToSend !== "string") {
+                  throw new Error(
+                    `Invalid transaction format for MegaETH tx #${txIndex}`
+                  );
                 }
 
                 // Explicitly verify the transaction is a valid string before sending
-                if (typeof txToSend !== 'string' || !txToSend.startsWith('0x')) {
-                  throw new Error(`Invalid transaction format for MegaETH tx #${txIndex}: ${typeof txToSend}`);
+                if (
+                  typeof txToSend !== "string" ||
+                  !txToSend.startsWith("0x")
+                ) {
+                  throw new Error(
+                    `Invalid transaction format for MegaETH tx #${txIndex}: ${typeof txToSend}`
+                  );
                 }
 
                 // Create a custom request to use the standard send transaction method
                 // MegaETH devs intended realtime_sendRawTransaction but it's not a standard method
-                const receipt = await publicClient!.request({
+                const receipt = (await publicClient!.request({
                   // @ts-expect-error - MegaETH custom method not in standard types
-                  method: 'realtime_sendRawTransaction',
-                  params: [txToSend as `0x${string}`]
-                }) as TransactionReceipt | null;
+                  method: "realtime_sendRawTransaction",
+                  params: [txToSend as `0x${string}`],
+                })) as TransactionReceipt | null;
 
                 // The result is the transaction hash directly
                 if (!receipt) {
-                  throw new Error(`MegaETH transaction sent but no hash returned for tx #${txIndex}`);
+                  throw new Error(
+                    `MegaETH transaction sent but no hash returned for tx #${txIndex}`
+                  );
                 }
 
                 txHash = receipt.transactionHash as Hex;
@@ -1039,36 +1343,44 @@ export function useChainRace() {
                 const txEndTime = Date.now();
                 txLatency = txEndTime - txStartTime;
               } else {
-
                 // Use pre-signed transaction if available, otherwise sign now
                 const txToSend = signedTransaction;
 
                 // Critical null safety check
                 if (!txToSend) {
-                  throw new Error(`No transaction to send for ${chain.name} tx #${txIndex}`);
+                  throw new Error(
+                    `No transaction to send for ${chain.name} tx #${txIndex}`
+                  );
                 }
 
-
                 // Explicitly verify the transaction is a valid string before sending
-                if (typeof txToSend !== 'string' || !txToSend.startsWith('0x')) {
-                  throw new Error(`Invalid transaction format for ${chain.name} tx #${txIndex}: ${typeof txToSend}`);
+                if (
+                  typeof txToSend !== "string" ||
+                  !txToSend.startsWith("0x")
+                ) {
+                  throw new Error(
+                    `Invalid transaction format for ${
+                      chain.name
+                    } tx #${txIndex}: ${typeof txToSend}`
+                  );
                 }
 
                 // Normal path for non-Monad chains
                 // Send the raw transaction - wagmi v2 changed the API
                 txHash = await publicClient!.sendRawTransaction({
-                  serializedTransaction: txToSend as `0x${string}`
+                  serializedTransaction: txToSend as `0x${string}`,
                 });
 
                 if (!txHash) {
-                  throw new Error(`Transaction sent but no hash returned for ${chain.name} tx #${txIndex}`);
+                  throw new Error(
+                    `Transaction sent but no hash returned for ${chain.name} tx #${txIndex}`
+                  );
                 }
-
               }
 
               // Update result with transaction hash
-              setResults(prev =>
-                prev.map(r =>
+              setResults((prev) =>
+                prev.map((r) =>
                   r.chainId === chainId
                     ? { ...r, txHash } // Just store the latest hash
                     : r
@@ -1092,7 +1404,7 @@ export function useChainRace() {
 
               // Transaction confirmed, update completed count and track latencies for all chains
               setResults((prev) => {
-                const updatedResults = prev.map(r => {
+                const updatedResults = prev.map((r) => {
                   if (r.chainId === chainId) {
                     // Add this transaction's latency to the array
                     const newLatencies = [...r.txLatencies, txLatency];
@@ -1101,18 +1413,22 @@ export function useChainRace() {
                     const allTxCompleted = txCompleted >= transactionCount;
 
                     // Calculate total and average latency if we have latencies
-                    const totalLatency = newLatencies.length > 0
-                      ? newLatencies.reduce((sum, val) => sum + val, 0)
-                      : undefined;
+                    const totalLatency =
+                      newLatencies.length > 0
+                        ? newLatencies.reduce((sum, val) => sum + val, 0)
+                        : undefined;
 
-                    const averageLatency = totalLatency !== undefined
-                      ? Math.round(totalLatency / newLatencies.length)
-                      : undefined;
-
+                    const averageLatency =
+                      totalLatency !== undefined
+                        ? Math.round(totalLatency / newLatencies.length)
+                        : undefined;
 
                     // Ensure status is one of the allowed values from RaceResult.status type
-                    const newStatus: "pending" | "racing" | "success" | "error" =
-                      allTxCompleted ? "success" : "racing";
+                    const newStatus:
+                      | "pending"
+                      | "racing"
+                      | "success"
+                      | "error" = allTxCompleted ? "success" : "racing";
 
                     return {
                       ...r,
@@ -1120,7 +1436,7 @@ export function useChainRace() {
                       status: newStatus,
                       txLatencies: newLatencies,
                       averageLatency,
-                      totalLatency
+                      totalLatency,
                     };
                   }
                   return r;
@@ -1128,8 +1444,12 @@ export function useChainRace() {
 
                 // Only determine rankings when chains finish all transactions
                 const finishedResults = updatedResults
-                  .filter(r => r.status === "success")
-                  .sort((a, b) => (a.averageLatency || Infinity) - (b.averageLatency || Infinity));
+                  .filter((r) => r.status === "success")
+                  .sort(
+                    (a, b) =>
+                      (a.averageLatency || Infinity) -
+                      (b.averageLatency || Infinity)
+                  );
 
                 // Assign positions to finished results
                 finishedResults.forEach((result, idx) => {
@@ -1144,7 +1464,10 @@ export function useChainRace() {
                 return updatedResults;
               });
             } catch (error) {
-              console.error(`Race error for chain ${chain.id}, tx #${txIndex}:`, error);
+              console.error(
+                `Race error for chain ${chain.id}, tx #${txIndex}:`,
+                error
+              );
 
               // Provide a more user-friendly error message
               let errorMessage = "Transaction failed";
@@ -1154,35 +1477,36 @@ export function useChainRace() {
                 const fullMessage = error.message;
 
                 if (fullMessage.includes("Invalid params")) {
-                  errorMessage = "Invalid transaction parameters. Chain may require specific gas settings.";
+                  errorMessage =
+                    "Invalid transaction parameters. Chain may require specific gas settings.";
                 } else if (fullMessage.includes("insufficient funds")) {
                   errorMessage = "Insufficient funds for gas + value.";
                 } else if (fullMessage.includes("nonce too low")) {
-                  errorMessage = "Transaction nonce issue. Try again with a new wallet.";
+                  errorMessage =
+                    "Transaction nonce issue. Try again with a new wallet.";
                 } else if (fullMessage.includes("timeout")) {
                   errorMessage = "Network timeout. Chain may be congested.";
                 } else {
                   // Use the first line of the error message if available
-                  const firstLine = fullMessage.split('\n')[0];
+                  const firstLine = fullMessage.split("\n")[0];
                   errorMessage = firstLine || fullMessage;
                 }
               }
 
-              setResults(prev =>
-                prev.map(r =>
+              setResults((prev) =>
+                prev.map((r) =>
                   r.chainId === chainId
                     ? {
-                      ...r,
-                      status: "error" as const,
-                      error: errorMessage
-                    }
+                        ...r,
+                        status: "error" as const,
+                        error: errorMessage,
+                      }
                     : r
                 )
               );
               break; // Stop sending transactions for this chain if there's an error
             }
           }
-
         } else if (isSolanaChain(chain)) {
           // Solana chain transaction processing
           const currentChainData = chainData.get(chainId);
@@ -1196,7 +1520,7 @@ export function useChainRace() {
           for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
             try {
               // Skip if chain already had an error
-              const currentState = results.find(r => r.chainId === chainId);
+              const currentState = results.find((r) => r.chainId === chainId);
               if (currentState?.status === "error") {
                 break;
               }
@@ -1206,22 +1530,26 @@ export function useChainRace() {
               const txStartTime = Date.now();
 
               // Get the pre-signed transaction for this index
-              const hasPreSignedTx = currentChainData.signedTransactions &&
+              const hasPreSignedTx =
+                currentChainData.signedTransactions &&
                 txIndex < currentChainData.signedTransactions.length &&
                 currentChainData.signedTransactions[txIndex] !== null;
 
               if (hasPreSignedTx) {
                 // Use pre-signed transaction (we know it exists due to hasPreSignedTx check)
-                const serializedTransaction = currentChainData.signedTransactions![txIndex] as Buffer;
+                const serializedTransaction =
+                  currentChainData.signedTransactions![txIndex] as Buffer;
 
                 // Send the pre-signed transaction
-                signature = await currentChainData.connection.sendRawTransaction(
-                  serializedTransaction,
-                  {
-                    skipPreflight: false,
-                    preflightCommitment: (chain as SolanaChainConfig).commitment,
-                  }
-                );
+                signature =
+                  await currentChainData.connection.sendRawTransaction(
+                    serializedTransaction,
+                    {
+                      skipPreflight: false,
+                      preflightCommitment: (chain as SolanaChainConfig)
+                        .commitment,
+                    }
+                  );
 
                 // Wait for confirmation
                 await currentChainData.connection.confirmTransaction(
@@ -1234,8 +1562,8 @@ export function useChainRace() {
                 txLatency = txEndTime - txStartTime;
 
                 // Update result with transaction signature
-                setResults(prev =>
-                  prev.map(r =>
+                setResults((prev) =>
+                  prev.map((r) =>
                     r.chainId === chainId
                       ? { ...r, signature } // Store Solana signature
                       : r
@@ -1243,7 +1571,9 @@ export function useChainRace() {
                 );
               } else {
                 // Fallback: create fresh transaction if no pre-signed transaction available
-                console.warn(`No pre-signed transaction for Solana tx #${txIndex}, creating fresh transaction`);
+                console.warn(
+                  `No pre-signed transaction for Solana tx #${txIndex}, creating fresh transaction`
+                );
 
                 const transaction = new Transaction().add(
                   SystemProgram.transfer({
@@ -1259,7 +1589,8 @@ export function useChainRace() {
                   [solanaKeypair],
                   {
                     commitment: (chain as SolanaChainConfig).commitment,
-                    preflightCommitment: (chain as SolanaChainConfig).commitment,
+                    preflightCommitment: (chain as SolanaChainConfig)
+                      .commitment,
                   }
                 );
 
@@ -1268,8 +1599,8 @@ export function useChainRace() {
                 txLatency = txEndTime - txStartTime;
 
                 // Update result with transaction signature
-                setResults(prev =>
-                  prev.map(r =>
+                setResults((prev) =>
+                  prev.map((r) =>
                     r.chainId === chainId
                       ? { ...r, signature } // Store Solana signature
                       : r
@@ -1279,7 +1610,7 @@ export function useChainRace() {
 
               // Transaction confirmed, update completed count and track latencies
               setResults((prev) => {
-                const updatedResults = prev.map(r => {
+                const updatedResults = prev.map((r) => {
                   if (r.chainId === chainId) {
                     // Add this transaction's latency to the array
                     const newLatencies = [...r.txLatencies, txLatency];
@@ -1288,17 +1619,22 @@ export function useChainRace() {
                     const allTxCompleted = txCompleted >= transactionCount;
 
                     // Calculate total and average latency if we have latencies
-                    const totalLatency = newLatencies.length > 0
-                      ? newLatencies.reduce((sum, val) => sum + val, 0)
-                      : undefined;
+                    const totalLatency =
+                      newLatencies.length > 0
+                        ? newLatencies.reduce((sum, val) => sum + val, 0)
+                        : undefined;
 
-                    const averageLatency = totalLatency !== undefined
-                      ? Math.round(totalLatency / newLatencies.length)
-                      : undefined;
+                    const averageLatency =
+                      totalLatency !== undefined
+                        ? Math.round(totalLatency / newLatencies.length)
+                        : undefined;
 
                     // Ensure status is one of the allowed values from RaceResult.status type
-                    const newStatus: "pending" | "racing" | "success" | "error" =
-                      allTxCompleted ? "success" : "racing";
+                    const newStatus:
+                      | "pending"
+                      | "racing"
+                      | "success"
+                      | "error" = allTxCompleted ? "success" : "racing";
 
                     return {
                       ...r,
@@ -1306,7 +1642,7 @@ export function useChainRace() {
                       status: newStatus,
                       txLatencies: newLatencies,
                       averageLatency,
-                      totalLatency
+                      totalLatency,
                     };
                   }
                   return r;
@@ -1314,8 +1650,12 @@ export function useChainRace() {
 
                 // Only determine rankings when chains finish all transactions
                 const finishedResults = updatedResults
-                  .filter(r => r.status === "success")
-                  .sort((a, b) => (a.averageLatency || Infinity) - (b.averageLatency || Infinity));
+                  .filter((r) => r.status === "success")
+                  .sort(
+                    (a, b) =>
+                      (a.averageLatency || Infinity) -
+                      (b.averageLatency || Infinity)
+                  );
 
                 // Assign positions to finished results
                 finishedResults.forEach((result, idx) => {
@@ -1330,7 +1670,10 @@ export function useChainRace() {
                 return updatedResults;
               });
             } catch (error) {
-              console.error(`Solana race error for chain ${chainId}, tx #${txIndex}:`, error);
+              console.error(
+                `Solana race error for chain ${chainId}, tx #${txIndex}:`,
+                error
+              );
 
               // Provide a more user-friendly error message
               let errorMessage = "Solana transaction failed";
@@ -1346,19 +1689,19 @@ export function useChainRace() {
                   errorMessage = "Solana network timeout. Please try again.";
                 } else {
                   // Use the first line of the error message if available
-                  const firstLine = fullMessage.split('\n')[0];
+                  const firstLine = fullMessage.split("\n")[0];
                   errorMessage = firstLine || fullMessage;
                 }
               }
 
-              setResults(prev =>
-                prev.map(r =>
+              setResults((prev) =>
+                prev.map((r) =>
                   r.chainId === chainId
                     ? {
-                      ...r,
-                      status: "error" as const,
-                      error: errorMessage
-                    }
+                        ...r,
+                        status: "error" as const,
+                        error: errorMessage,
+                      }
                     : r
                 )
               );
@@ -1384,7 +1727,7 @@ export function useChainRace() {
           for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
             try {
               // Skip if chain already had an error
-              const currentState = results.find(r => r.chainId === chainId);
+              const currentState = results.find((r) => r.chainId === chainId);
               if (currentState?.status === "error") {
                 break;
               }
@@ -1398,16 +1741,21 @@ export function useChainRace() {
                 if (!currentChainData.signedTransactions) {
                   throw new Error("No pre-signed transaction available");
                 }
-                const signedTransaction = currentChainData.signedTransactions[0];
+                const signedTransaction =
+                  currentChainData.signedTransactions[0];
                 if (!signedTransaction) {
                   throw new Error("No pre-signed transaction available");
                 }
-                tx = await provider.sendTransaction(signedTransaction as TransactionRequest, { estimateTxDependencies: false });
+                tx = await provider.sendTransaction(
+                  signedTransaction as TransactionRequest,
+                  { estimateTxDependencies: false }
+                );
 
                 const preConfOutput = await tx.waitForPreConfirmation();
                 if (preConfOutput.resolvedOutputs) {
                   const ethUTXO = preConfOutput.resolvedOutputs.find(
-                    (output) => (output.output as OutputChange).assetId === baseAssetId
+                    (output) =>
+                      (output.output as OutputChange).assetId === baseAssetId
                   );
                   if (ethUTXO) {
                     lastETHResolvedOutput = [ethUTXO];
@@ -1415,12 +1763,17 @@ export function useChainRace() {
                 }
               } else {
                 // Subsequent transactions using previous UTXO
-                if (!lastETHResolvedOutput || lastETHResolvedOutput.length === 0) {
-                  throw new Error("No resolved output available for subsequent transaction");
+                if (
+                  !lastETHResolvedOutput ||
+                  lastETHResolvedOutput.length === 0
+                ) {
+                  throw new Error(
+                    "No resolved output available for subsequent transaction"
+                  );
                 }
 
                 const scriptRequest = new ScriptTransactionRequest({
-                  script: "0x"
+                  script: "0x",
                 });
                 scriptRequest.maxFee = bn(100);
 
@@ -1440,13 +1793,20 @@ export function useChainRace() {
                 };
 
                 scriptRequest.addResource(resource);
-                const signedTransaction = await fuelWalletUnlocked.populateTransactionWitnessesSignature(scriptRequest);
-                tx = await provider.sendTransaction(signedTransaction as TransactionRequest, { estimateTxDependencies: false });
+                const signedTransaction =
+                  await fuelWalletUnlocked.populateTransactionWitnessesSignature(
+                    scriptRequest
+                  );
+                tx = await provider.sendTransaction(
+                  signedTransaction as TransactionRequest,
+                  { estimateTxDependencies: false }
+                );
 
                 const preConfOutput = await tx.waitForPreConfirmation();
                 if (preConfOutput.resolvedOutputs) {
                   const ethUTXO = preConfOutput.resolvedOutputs.find(
-                    (output) => (output.output as OutputChange).assetId === baseAssetId
+                    (output) =>
+                      (output.output as OutputChange).assetId === baseAssetId
                   );
                   if (ethUTXO) {
                     lastETHResolvedOutput = [ethUTXO];
@@ -1463,32 +1823,35 @@ export function useChainRace() {
               txLatency = txEndTime - txStartTime;
 
               // Update result with transaction hash
-              setResults(prev =>
-                prev.map(r =>
-                  r.chainId === chainId
-                    ? { ...r, txHash: `0x${tx.id}` }
-                    : r
+              setResults((prev) =>
+                prev.map((r) =>
+                  r.chainId === chainId ? { ...r, txHash: `0x${tx.id}` } : r
                 )
               );
 
               // Transaction confirmed, update completed count and track latencies
               setResults((prev) => {
-                const updatedResults = prev.map(r => {
+                const updatedResults = prev.map((r) => {
                   if (r.chainId === chainId) {
                     const newLatencies = [...r.txLatencies, txLatency];
                     const txCompleted = r.txCompleted + 1;
                     const allTxCompleted = txCompleted >= transactionCount;
 
-                    const totalLatency = newLatencies.length > 0
-                      ? newLatencies.reduce((sum, val) => sum + val, 0)
-                      : undefined;
+                    const totalLatency =
+                      newLatencies.length > 0
+                        ? newLatencies.reduce((sum, val) => sum + val, 0)
+                        : undefined;
 
-                    const averageLatency = totalLatency !== undefined
-                      ? Math.round(totalLatency / newLatencies.length)
-                      : undefined;
+                    const averageLatency =
+                      totalLatency !== undefined
+                        ? Math.round(totalLatency / newLatencies.length)
+                        : undefined;
 
-                    const newStatus: "pending" | "racing" | "success" | "error" =
-                      allTxCompleted ? "success" : "racing";
+                    const newStatus:
+                      | "pending"
+                      | "racing"
+                      | "success"
+                      | "error" = allTxCompleted ? "success" : "racing";
 
                     return {
                       ...r,
@@ -1496,7 +1859,7 @@ export function useChainRace() {
                       status: newStatus,
                       txLatencies: newLatencies,
                       averageLatency,
-                      totalLatency
+                      totalLatency,
                     };
                   }
                   return r;
@@ -1504,8 +1867,12 @@ export function useChainRace() {
 
                 // Only determine rankings when chains finish all transactions
                 const finishedResults = updatedResults
-                  .filter(r => r.status === "success")
-                  .sort((a, b) => (a.averageLatency || Infinity) - (b.averageLatency || Infinity));
+                  .filter((r) => r.status === "success")
+                  .sort(
+                    (a, b) =>
+                      (a.averageLatency || Infinity) -
+                      (b.averageLatency || Infinity)
+                  );
 
                 // Assign positions to finished results
                 finishedResults.forEach((result, idx) => {
@@ -1520,7 +1887,10 @@ export function useChainRace() {
                 return updatedResults;
               });
             } catch (error) {
-              console.error(`Fuel race error for chain ${chainId}, tx #${txIndex}:`, error);
+              console.error(
+                `Fuel race error for chain ${chainId}, tx #${txIndex}:`,
+                error
+              );
 
               let errorMessage = "Fuel transaction failed";
 
@@ -1532,19 +1902,19 @@ export function useChainRace() {
                 } else if (fullMessage.includes("timeout")) {
                   errorMessage = "Fuel network timeout. Please try again.";
                 } else {
-                  const firstLine = fullMessage.split('\n')[0];
+                  const firstLine = fullMessage.split("\n")[0];
                   errorMessage = firstLine || fullMessage;
                 }
               }
 
-              setResults(prev =>
-                prev.map(r =>
+              setResults((prev) =>
+                prev.map((r) =>
                   r.chainId === chainId
                     ? {
-                      ...r,
-                      status: "error" as const,
-                      error: errorMessage
-                    }
+                        ...r,
+                        status: "error" as const,
+                        error: errorMessage,
+                      }
                     : r
                 )
               );
@@ -1555,7 +1925,11 @@ export function useChainRace() {
           // Aptos chain transaction processing
           const currentChainData = chainData.get(chainId);
 
-          if (!currentChainData || !currentChainData.aptos || !currentChainData.signedTransactions) {
+          if (
+            !currentChainData ||
+            !currentChainData.aptos ||
+            !currentChainData.signedTransactions
+          ) {
             console.error(`No Aptos client data for chain ${chainId}`);
             return;
           }
@@ -1566,7 +1940,7 @@ export function useChainRace() {
           for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
             try {
               // Skip if chain already had an error
-              const currentState = results.find(r => r.chainId === chainId);
+              const currentState = results.find((r) => r.chainId === chainId);
               if (currentState?.status === "error") {
                 break;
               }
@@ -1575,87 +1949,114 @@ export function useChainRace() {
               const txStartTime = Date.now();
 
               // Sign and submit the transaction
-              const signedTransaction = currentChainData.signedTransactions[txIndex];
+              const signedTransaction =
+                currentChainData.signedTransactions[txIndex];
               if (!signedTransaction || typeof signedTransaction !== "object") {
-                throw new Error(`No pre-signed transaction available for Aptos tx #${txIndex}`);
-              } else if (typeof signedTransaction === "object" && !("senderAuthenticator" in signedTransaction)) {
-                console.error(`Signed transaction for Aptos tx #${txIndex} is missing senderAuthenticator`);
+                throw new Error(
+                  `No pre-signed transaction available for Aptos tx #${txIndex}`
+                );
+              } else if (
+                typeof signedTransaction === "object" &&
+                !("senderAuthenticator" in signedTransaction)
+              ) {
+                console.error(
+                  `Signed transaction for Aptos tx #${txIndex} is missing senderAuthenticator`
+                );
                 return;
               }
 
-              const response = await aptos.transaction.submit.simple(signedTransaction);
+              const response = await aptos.transaction.submit.simple(
+                signedTransaction
+              );
 
               // Wait for transaction confirmation
               await aptos.waitForTransaction({
                 transactionHash: response.hash,
                 options: {
-                  waitForIndexer: false // Unnecessary, no indexer calls made
-                }
+                  waitForIndexer: false, // Unnecessary, no indexer calls made
+                },
               });
 
               // Calculate transaction latency
               const txEndTime = Date.now();
               txLatency = txEndTime - txStartTime;
 
-                // Update result with transaction hash
-                setResults(prev =>
-                  prev.map(r =>
-                    r.chainId === chainId
-                      ? { ...r, txHash: response.hash.startsWith('0x') ? response.hash as Hex : `0x${response.hash}` as Hex }
-                      : r
-                  )
-                );
+              // Update result with transaction hash
+              setResults((prev) =>
+                prev.map((r) =>
+                  r.chainId === chainId
+                    ? {
+                        ...r,
+                        txHash: response.hash.startsWith("0x")
+                          ? (response.hash as Hex)
+                          : (`0x${response.hash}` as Hex),
+                      }
+                    : r
+                )
+              );
 
-                // Transaction confirmed, update completed count and track latencies
-                setResults((prev) => {
-                  const updatedResults = prev.map(r => {
-                    if (r.chainId === chainId) {
-                      const newLatencies = [...r.txLatencies, txLatency];
-                      const txCompleted = r.txCompleted + 1;
-                      const allTxCompleted = txCompleted >= transactionCount;
+              // Transaction confirmed, update completed count and track latencies
+              setResults((prev) => {
+                const updatedResults = prev.map((r) => {
+                  if (r.chainId === chainId) {
+                    const newLatencies = [...r.txLatencies, txLatency];
+                    const txCompleted = r.txCompleted + 1;
+                    const allTxCompleted = txCompleted >= transactionCount;
 
-                      const totalLatency = newLatencies.length > 0
+                    const totalLatency =
+                      newLatencies.length > 0
                         ? newLatencies.reduce((sum, val) => sum + val, 0)
                         : undefined;
 
-                      const averageLatency = totalLatency !== undefined
+                    const averageLatency =
+                      totalLatency !== undefined
                         ? Math.round(totalLatency / newLatencies.length)
                         : undefined;
 
-                      const newStatus: "pending" | "racing" | "success" | "error" =
-                        allTxCompleted ? "success" : "racing";
+                    const newStatus:
+                      | "pending"
+                      | "racing"
+                      | "success"
+                      | "error" = allTxCompleted ? "success" : "racing";
 
-                      return {
-                        ...r,
-                        txCompleted,
-                        status: newStatus,
-                        txLatencies: newLatencies,
-                        averageLatency,
-                        totalLatency
-                      };
-                    }
-                    return r;
-                  });
-
-                  // Only determine rankings when chains finish all transactions
-                  const finishedResults = updatedResults
-                    .filter(r => r.status === "success")
-                    .sort((a, b) => (a.averageLatency || Infinity) - (b.averageLatency || Infinity));
-
-                  // Assign positions to finished results
-                  finishedResults.forEach((result, idx) => {
-                    const position = idx + 1;
-                    updatedResults.forEach((r, i) => {
-                      if (r.chainId === result.chainId) {
-                        updatedResults[i] = { ...r, position };
-                      }
-                    });
-                  });
-
-                  return updatedResults;
+                    return {
+                      ...r,
+                      txCompleted,
+                      status: newStatus,
+                      txLatencies: newLatencies,
+                      averageLatency,
+                      totalLatency,
+                    };
+                  }
+                  return r;
                 });
+
+                // Only determine rankings when chains finish all transactions
+                const finishedResults = updatedResults
+                  .filter((r) => r.status === "success")
+                  .sort(
+                    (a, b) =>
+                      (a.averageLatency || Infinity) -
+                      (b.averageLatency || Infinity)
+                  );
+
+                // Assign positions to finished results
+                finishedResults.forEach((result, idx) => {
+                  const position = idx + 1;
+                  updatedResults.forEach((r, i) => {
+                    if (r.chainId === result.chainId) {
+                      updatedResults[i] = { ...r, position };
+                    }
+                  });
+                });
+
+                return updatedResults;
+              });
             } catch (error) {
-              console.error(`Aptos race error for chain ${chainId}, tx #${txIndex}:`, error);
+              console.error(
+                `Aptos race error for chain ${chainId}, tx #${txIndex}:`,
+                error
+              );
 
               let errorMessage = "Aptos transaction failed";
 
@@ -1667,21 +2068,22 @@ export function useChainRace() {
                 } else if (fullMessage.includes("timeout")) {
                   errorMessage = "Aptos network timeout. Please try again.";
                 } else if (fullMessage.includes("SEQUENCE_NUMBER_TOO_OLD")) {
-                  errorMessage = "Transaction sequence error. Please try again.";
+                  errorMessage =
+                    "Transaction sequence error. Please try again.";
                 } else {
-                  const firstLine = fullMessage.split('\n')[0];
+                  const firstLine = fullMessage.split("\n")[0];
                   errorMessage = firstLine || fullMessage;
                 }
               }
 
-              setResults(prev =>
-                prev.map(r =>
+              setResults((prev) =>
+                prev.map((r) =>
                   r.chainId === chainId
                     ? {
-                      ...r,
-                      status: "error" as const,
-                      error: errorMessage
-                    }
+                        ...r,
+                        status: "error" as const,
+                        error: errorMessage,
+                      }
                     : r
                 )
               );
@@ -1689,17 +2091,19 @@ export function useChainRace() {
             }
           }
         }
-
       } catch (error) {
         console.error(`Race initialization error for chain ${chainId}:`, error);
-        setResults(prev =>
-          prev.map(r =>
+        setResults((prev) =>
+          prev.map((r) =>
             r.chainId === chainId
               ? {
-                ...r,
-                status: "error" as const,
-                error: error instanceof Error ? error.message : "Race initialization failed"
-              }
+                  ...r,
+                  status: "error" as const,
+                  error:
+                    error instanceof Error
+                      ? error.message
+                      : "Race initialization failed",
+                }
               : r
           )
         );
@@ -1708,9 +2112,12 @@ export function useChainRace() {
 
     // Check if race is complete periodically
     const checkRaceComplete = setInterval(() => {
-      setResults(prev => {
-        const allDone = prev.every(r =>
-          r.status === "success" || r.status === "error" || r.txCompleted >= transactionCount
+      setResults((prev) => {
+        const allDone = prev.every(
+          (r) =>
+            r.status === "success" ||
+            r.status === "error" ||
+            r.txCompleted >= transactionCount
         );
 
         if (allDone) {
@@ -1738,16 +2145,16 @@ export function useChainRace() {
 
   // Skip a specific chain during the race
   const skipChain = (chainId: number | string) => {
-    setResults(prev =>
-      prev.map(r =>
+    setResults((prev) =>
+      prev.map((r) =>
         r.chainId === chainId
           ? {
-            ...r,
-            status: "success" as const, // Use const assertion to ensure correct type
-            txCompleted: r.txTotal, // Mark all transactions as completed
-            position: 999, // Put it at the end of the results
-            error: "Skipped by user"
-          }
+              ...r,
+              status: "success" as const, // Use const assertion to ensure correct type
+              txCompleted: r.txTotal, // Mark all transactions as completed
+              position: 999, // Put it at the end of the results
+              error: "Skipped by user",
+            }
           : r
       )
     );
