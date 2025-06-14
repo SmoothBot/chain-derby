@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
@@ -51,9 +52,8 @@ import {
   ResolvedOutput,
   OutputChange,
 } from "fuels";
-import { sepolia } from "@starknet-react/chains";
-import { CallData, RpcProvider, uint256 } from "starknet";
-const SEPOLIA_RPC_URL = "https://starknet-sepolia.public.blastapi.io/rpc/v0_8";
+import { mainnet, sepolia } from "@starknet-react/chains";
+import { Account, CallData, RpcProvider, uint256 } from "starknet";
 const STRK_TOKEN_ADDRESS =
   "0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D";
 export type ChainRaceStatus =
@@ -177,7 +177,7 @@ function getSolanaFallbackEndpoints(chain: SolanaChainConfig): string[] {
 
 export function useChainRace() {
   const { account, privateKey, isReady, resetWallet } = useEmbeddedWallet();
-  const { accountAddress: starknetAccountAddress, account: starknetAccount, SEPOLIA_PROVIDER: starknetProviderSepolia,MAINNET_PROVIDER:starknetProviderMainnet } = useStarknetEmbeddedWallet();
+  const { accountAddress: starknetAccountAddress, account: starknetAccount, SEPOLIA_PROVIDER: starknetProviderSepolia, MAINNET_PROVIDER: starknetProviderMainnet, privateKey: starknetPrivateKey, deployAccount, checkIfDeployed, publicKey: starknetPublickey } = useStarknetEmbeddedWallet();
   const {
     publicKey: solanaPublicKey,
     keypair: solanaKeypair,
@@ -515,6 +515,45 @@ export function useChainRace() {
               }
 
               const hasBalance = balance > BigInt(1e14); // your threshold
+
+              // If balance is sufficient for deployment, check if account is deployed
+              if (hasBalance) {
+                try {
+                  console.log("💰 Sufficient balance detected, checking if account is deployed...");
+
+                  // Determine which provider to use based on chain
+                  const provider = chain.id === mainnet.id.toString() ? starknetProviderMainnet : starknetProviderSepolia;
+
+                  const isDeployed = await withTimeout(
+                    checkIfDeployed(provider, starknetAccountAddress),
+                    5000 // 5-second timeout
+                  );
+
+                  if (!isDeployed) {
+                    console.log("🚀 Account not deployed, attempting deployment...");
+
+
+                    const account = new Account(starknetProviderSepolia, starknetAccountAddress, starknetPrivateKey!);
+                    const accountMainnet = new Account(starknetProviderMainnet, starknetAccountAddress, starknetPrivateKey!);
+
+
+                    const publicKey = starknetPublickey;
+
+                    await withTimeout(
+                      deployAccount(account, accountMainnet, publicKey!),
+                      30000
+                    );
+
+                    console.log("✅ Account successfully deployed!");
+                  } else {
+                    console.log("✅ Account is already deployed");
+                  }
+                } catch (deployError) {
+                  console.error("❌ Account deployment check/deployment failed:", deployError);
+                  // Continue execution even if deployment fails
+                }
+              }
+
               return {
                 chainId: chain.id.toString(),
                 balance,
@@ -636,18 +675,7 @@ export function useChainRace() {
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [
-    account,
-    solanaPublicKey,
-    solanaReady,
-    fuelWallet,
-    fuelReady,
-    aptosAccount,
-    aptosReady,
-    status,
-    selectedChains,
-    starknetAccountAddress
-  ]);
+  }, [account, solanaReady, solanaPublicKey, fuelReady, fuelWallet, aptosReady, aptosAccount, starknetAccountAddress, status, starknetPrivateKey, starknetPublickey]);
 
   // Effect to check balances automatically when wallet is ready
   useEffect(() => {
@@ -660,6 +688,7 @@ export function useChainRace() {
       fuelWallet &&
       aptosReady &&
       aptosAccount &&
+      starknetAccount &&
       status !== "racing" &&
       status !== "finished"
     ) {
@@ -681,6 +710,7 @@ export function useChainRace() {
     aptosAccount,
     status,
     checkBalances,
+    starknetAccount
   ]);
 
   // Effect to save race results when race finishes
@@ -813,6 +843,8 @@ export function useChainRace() {
       status !== "ready"
     )
       return;
+
+
 
     setStatus("racing");
 
@@ -1134,17 +1166,21 @@ export function useChainRace() {
               signedTransactions,
             };
           } else if (isStarknetChain(chain)) {
-            const provider = chainData.get(chainId)?.starknet?.provider
+            const provider = new RpcProvider({ nodeUrl: chain?.rpcUrl });
+            console.log({ chain });
 
             console.log(`Fetching Starknet data for ${chain.name}...`);
+
+            console.log(starknetAccount, provider, starknetAccount!.address);
 
             // Get the current on-chain nonce
             const startingNonceResponse = await provider.getNonceForAddress(
               starknetAccount!.address
             );
+       
             const currentNonce = BigInt(startingNonceResponse);
 
-            // Pre-build all transactions 
+            // Pre-build all transactions
             const signedTransactions = [];
 
             for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
@@ -2305,6 +2341,7 @@ export function useChainRace() {
             }
           }
         }
+
       } catch (error) {
         console.error(`Race initialization error for chain ${chainId}:`, error);
         setResults((prev) =>
