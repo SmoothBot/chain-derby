@@ -24,10 +24,32 @@ const LeaderboardPanel = dynamic(() => import("@/components/LeaderboardPanel").t
 });
 
 export default function Home() {
-  const { status } = useChainRaceContext();
+  const { status, checkBalances, isLoadingBalances } = useChainRaceContext();
   // Create a stabilized status to prevent flickering
   const [stableStatus, setStableStatus] = useState<ChainRaceStatus>(status);
+  const [isInitialized, setIsInitialized] = useState(false);
   
+  useEffect(() => {
+    const initializeApp = async () => {
+      if (isInitialized || isLoadingBalances) {
+        return;
+      }
+
+      // Add a small delay to ensure all components are mounted
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Only check balances if we're in an initial state
+      if (status === "idle" || status === "funding") {
+        console.log('Starting initial balance check from page...');
+        await checkBalances();
+      }
+
+      setIsInitialized(true);
+    };
+
+    initializeApp();
+  }, [status, isInitialized, isLoadingBalances, checkBalances]);
+
   useEffect(() => {
     const isRacingOrFinished = (s: ChainRaceStatus) => s === "racing" || s === "finished";
     const isInitialState = (s: ChainRaceStatus) => s === "idle" || s === "funding" || s === "ready";
