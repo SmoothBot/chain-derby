@@ -36,7 +36,7 @@ import {
   RpcProvider, 
 } from "starknet";
 import { Account } from "starknet";
-import { useChainRaceContext } from "@/providers/ChainRaceProvider";
+
 
 export type ChainRaceStatus = "idle" | "funding" | "ready" | "racing" | "finished";
 
@@ -146,7 +146,7 @@ export function useChainRace() {
   const { publicKey: solanaPublicKey, keypair: solanaKeypair, isReady: solanaReady } = useSolanaEmbeddedWallet();
   const { wallet: fuelWallet, isReady: fuelReady } = useFuelEmbeddedWallet();
   const { account: aptosAccount, address: aptosAddress, isReady: aptosReady } = useAptosEmbeddedWallet();
-  const { publicKey: soonPublicKey, keypair: soonKeypair, isReady: soonReady } = useSoonEmbeddedWallet();
+  const { publicKey: soonPublicKey, keypair: soonKeypair  } = useSoonEmbeddedWallet();
   const { starknetprivateKey, starknetaccount, starknetisReady } = useStarknetEmbeddedWallet();
   const [status, setStatus] = useState<ChainRaceStatus>("idle");
   const [balances, setBalances] = useState<ChainBalance[]>([]);

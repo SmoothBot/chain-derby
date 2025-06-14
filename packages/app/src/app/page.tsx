@@ -24,7 +24,7 @@ const LeaderboardPanel = dynamic(() => import("@/components/LeaderboardPanel").t
 });
 
 export default function Home() {
-  const { status, checkBalances, isLoadingBalances } = useChainRaceContext();
+  const { status } = useChainRaceContext();
   // Create a stabilized status to prevent flickering
   const [stableStatus, setStableStatus] = useState<ChainRaceStatus>(status);
   const [isInitialized, setIsInitialized] = useState(false);
