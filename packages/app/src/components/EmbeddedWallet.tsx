@@ -6,8 +6,9 @@ import { useSolanaEmbeddedWallet } from "@/hooks/useSolanaEmbeddedWallet";
 import { useFuelEmbeddedWallet } from "@/hooks/useFuelEmbeddedWallet";
 import { useAptosEmbeddedWallet } from "@/hooks/useAptosEmbeddedWallet";
 import { useSoonEmbeddedWallet } from "@/hooks/useSoonEmbeddedWallet";
+import { useStarknetEmbeddedWallet } from "@/hooks/useStarknetEmbeddedWallet";
 import { CopyIcon, Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function EmbeddedWallet() {
   const { account, privateKey } = useChainRaceContext();
@@ -15,19 +16,21 @@ export function EmbeddedWallet() {
   const { address: fuelAddress, secret: fuelSecret, isReady: fuelReady } = useFuelEmbeddedWallet();
   const { address: aptosAddress, privateKey: aptosPrivateKey, isReady: aptosReady } = useAptosEmbeddedWallet();
   const { publicKey: soonPublicKey, secret: soonSecret, isReady: soonReady } = useSoonEmbeddedWallet();
-  const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | "soon-address" | "soon-key" | null>(null);
+  const { starknetprivateKey, starknetaccount, starknetisReady, resetWallet, progress } = useStarknetEmbeddedWallet();
+  const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | "soon-address" | "soon-key" | "starknet-address" | "starknet-key" | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [showSolanaKey, setShowSolanaKey] = useState(false);
   const [showFuelKey, setShowFuelKey] = useState(false);
   const [showAptosKey, setShowAptosKey] = useState(false);
   const [showSoonKey, setShowSoonKey] = useState(false);
-  
-  const copyToClipboard = (text: string, type: "address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | "soon-address" | "soon-key") => {
+  const [showStarknetKey, setShowStarknetKey] = useState(false);
+
+  const copyToClipboard = (text: string, type: "address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | "soon-address" | "soon-key" | "starknet-address" | "starknet-key") => {
     navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
   };
-  
+
   if (!account || !privateKey || !solanaReady || !fuelReady || !aptosReady || !soonReady) {
     return (
       <Card className="w-full">
@@ -277,6 +280,70 @@ export function EmbeddedWallet() {
                 >
                   {copied === "soon-key" ? "Copied!" : <CopyIcon size={18} />}
                 </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Separator */}
+        <Separator />
+
+        {/* Starknet Wallet Section */}
+        {starknetaccount?.address && starknetprivateKey ? (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Starknet Wallet</h3>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {starknetaccount.address}
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => copyToClipboard(starknetaccount.address, "starknet-address")}
+                >
+                  {copied === "starknet-address" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Private Key (Do not share!)</label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {showStarknetKey && starknetprivateKey ? `${starknetprivateKey.substring(0, 18)}...${starknetprivateKey.substring(starknetprivateKey.length - 18)}` : "••••••••••••••••••••"}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowStarknetKey(!showStarknetKey)}
+                >
+                  {showStarknetKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => starknetprivateKey && copyToClipboard(starknetprivateKey, "starknet-key")}
+                >
+                  {copied === "starknet-key" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Starknet Wallet</h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{progress.step}</span>
+                <span className="text-sm font-medium">{progress.percentage}%</span>
+              </div>
+              <div className="w-full h-2 bg-accent/25 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-300 ease-in-out"
+                  style={{ width: `${progress.percentage}%` }}
+                />
               </div>
             </div>
           </div>
