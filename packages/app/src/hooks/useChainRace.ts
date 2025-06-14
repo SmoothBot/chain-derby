@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -50,7 +52,7 @@ import {
   OutputChange,
 } from "fuels";
 import { sepolia } from "@starknet-react/chains";
-import { Contract, RpcProvider } from "starknet";
+import { CallData, RpcProvider, uint256 } from "starknet";
 const SEPOLIA_RPC_URL = "https://starknet-sepolia.public.blastapi.io/rpc/v0_8";
 const STRK_TOKEN_ADDRESS =
   "0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D";
@@ -66,7 +68,7 @@ export interface ChainBalance {
   balance: bigint;
   hasBalance: boolean;
   error?: string;
-} 
+}
 
 
 
@@ -162,20 +164,20 @@ function getSolanaFallbackEndpoints(chain: SolanaChainConfig): string[] {
     // Fallback RPC endpoints for Solana
     ...(chain.id === "solana-mainnet"
       ? [
-          "https://api.mainnet-beta.solana.com",
-          "https://solana-api.projectserum.com",
-          "https://rpc.ankr.com/solana",
-        ]
+        "https://api.mainnet-beta.solana.com",
+        "https://solana-api.projectserum.com",
+        "https://rpc.ankr.com/solana",
+      ]
       : chain.id === "solana-devnet"
-      ? ["https://api.devnet.solana.com"]
-      : ["https://api.testnet.solana.com"]),
+        ? ["https://api.devnet.solana.com"]
+        : ["https://api.testnet.solana.com"]),
   ];
   return fallbackEndpoints;
 }
 
 export function useChainRace() {
   const { account, privateKey, isReady, resetWallet } = useEmbeddedWallet();
-  const {walletState:starknetWallet} = useStarknetEmbeddedWallet();
+  const { accountAddress: starknetAccountAddress, account: starknetAccount,provider:starknetProvider } = useStarknetEmbeddedWallet();
   const {
     publicKey: solanaPublicKey,
     keypair: solanaKeypair,
@@ -295,7 +297,7 @@ export function useChainRace() {
 
   const getFilteredChains = useCallback(() => {
     return allChains.filter((chain) => {
-      console.log({ chain });
+      // console.log({ chain });
       // Layer filter
       if (layerFilter !== "Both") {
         if (isEvmChain(chain)) {
@@ -349,7 +351,8 @@ export function useChainRace() {
       !fuelReady ||
       !fuelWallet ||
       !aptosReady ||
-      !aptosAccount
+      !aptosAccount ||
+      !starknetAccountAddress
     )
       return;
 
@@ -374,7 +377,7 @@ export function useChainRace() {
         }> => {
           try {
             let balance: bigint;
-            const chainId = isEvmChain(chain) ? chain.id : chain.id;
+            const chainId = chain.id;
 
             if (isEvmChain(chain)) {
               // EVM chain balance check
@@ -468,9 +471,10 @@ export function useChainRace() {
                 hasBalance,
               };
             } else if (isStarknetChain(chain)) {
-              balance = await getSTRKBalance();
+              const strkBalance = await getSTRKBalance(starknetAccountAddress);
+              balance = typeof strkBalance === "bigint" ? strkBalance : BigInt(strkBalance ?? 0);
               const hasBalance = balance > BigInt(1e14);
-              console.log(`Starknet balance for ${chain.name}:`, balance);
+
               return {
                 chainId: sepolia.id.toString(),
                 balance,
@@ -481,8 +485,7 @@ export function useChainRace() {
             }
           } catch (error) {
             console.error(
-              `Failed to get balance for chain ${
-                isEvmChain(chain) ? chain.id : chain.id
+              `Failed to get balance for chain ${isEvmChain(chain) ? chain.id : chain.id
               } (attempt ${retryCount + 1}/${maxRetries + 1}):`,
               error
             );
@@ -498,7 +501,7 @@ export function useChainRace() {
             const errorMessage =
               error instanceof Error ? error.message : "Unknown error";
             return {
-              chainId: isEvmChain(chain) ? chain.id : chain.id,
+              chainId: chain.id,
               balance: BigInt(0),
               hasBalance: false,
               error: errorMessage,
@@ -545,11 +548,10 @@ export function useChainRace() {
       newBalances.forEach((balance) => {
         if (balance.error) {
           const chain = allChains.find(
-            (c) => (isEvmChain(c) ? c.id : c.id) === balance.chainId
+            (c) => c.id === balance.chainId
           );
           console.warn(
-            `Error checking balance for ${chain?.name || balance.chainId}: ${
-              balance.error
+            `Error checking balance for ${chain?.name || balance.chainId}: ${balance.error
             }`
           );
         }
@@ -603,6 +605,7 @@ export function useChainRace() {
     aptosReady,
     status,
     selectedChains,
+    starknetAccountAddress
   ]);
 
   // Effect to check balances automatically when wallet is ready
@@ -762,6 +765,7 @@ export function useChainRace() {
       !solanaKeypair ||
       !fuelWallet ||
       !aptosAccount ||
+      !starknetAccount ||
       status !== "ready"
     )
       return;
@@ -771,7 +775,7 @@ export function useChainRace() {
     // Filter chains based on layer filter AND selection (support both EVM and Solana)
     const filteredChains = getFilteredChains();
     const activeChains = filteredChains.filter((chain) =>
-      selectedChains.includes(isEvmChain(chain) ? chain.id : chain.id)
+      selectedChains.includes(chain.id)
     );
 
     // Pre-fetch all chain data needed for transactions
@@ -787,15 +791,24 @@ export function useChainRace() {
           | string
           | TransactionRequest
           | {
-              transaction: SimpleTransaction;
-              senderAuthenticator: AccountAuthenticator;
-            }
+            transaction: SimpleTransaction;
+            senderAuthenticator: AccountAuthenticator;
+          }
           | Buffer
+          | {
+            call: {
+              contractAddress: string;
+              entrypoint: string;
+              calldata: any;
+            };
+            nonce: bigint;
+          }
           | null
         )[]; // Store pre-signed transactions, which may be null
         connection?: Connection; // For Solana chains
         aptos?: Aptos; // For Aptos chains
         wallet?: WalletUnlocked; // For Fuel chains
+        starknet?:any
       }
     >();
 
@@ -832,10 +845,10 @@ export function useChainRace() {
                     chain.id === 10143
                       ? 60000000000 // Monad has higher gas requirements
                       : chain.id === 8453
-                      ? 2000000000 // Base mainnet
-                      : chain.id === 17180
-                      ? 1500000000 // Sonic
-                      : 1000000000 // Default fallback (1 gwei)
+                        ? 2000000000 // Base mainnet
+                        : chain.id === 17180
+                          ? 1500000000 // Sonic
+                          : 1000000000 // Default fallback (1 gwei)
                   );
                   return fallbackGasPrice;
                 }),
@@ -1077,61 +1090,47 @@ export function useChainRace() {
               signedTransactions,
             };
           } else if (isStarknetChain(chain)) {
-            const provider = new RpcProvider({
-              nodeUrl: SEPOLIA_RPC_URL,
-            });
+            const provider = chainData.get(chainId)?.starknet?.provider || starknetProvider
 
-            console.log(
-              `Fetching Starknet data for ${chain.name}...`
+            console.log(`Fetching Starknet data for ${chain.name}...`);
+
+            // Get the current on-chain nonce
+            const startingNonceResponse = await provider.getNonceForAddress(
+              starknetAccount!.address
             );
-         
-            const starknetAccount = starknetWallet.accountAddress;
+            const currentNonce = BigInt(startingNonceResponse);
 
-            // Fetch the current nonce
-            const nonceResponse = await provider.getNonceForAddress(
-              starknetAccount
-            );
-            const startingNonce = BigInt(nonceResponse);
+            // Pre-build all transactions 
+            const signedTransactions = [];
 
-            const buildAndSignStarknetTransaction = async (
-              txIndex: number,
-              baseNonce: bigint
-            ) => {
-              const nonce = baseNonce + BigInt(txIndex);
-
-              // Dummy transaction: transfer 0 STRK to self
-              const calldata = [starknetAccount, "0"]; // transfer to self, amount 0
-
-              const tx = {
-                contractAddress: STRK_TOKEN_ADDRESS,
-                entrypoint: "transfer",
-                calldata,
-                nonce,
-                maxFee: "0x3B9ACA00",
-              };
-
-              const signedTx = await starknetAccount.signTransaction(tx);
-
-              return {
-                transaction: tx,
-                signedTransaction: signedTx,
-              };
-            };
-
-            const signedTransactionPromises = [];
             for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
-              signedTransactionPromises.push(
-                buildAndSignStarknetTransaction(txIndex, startingNonce)
-              );
-            }
+              try {
+                // Dummy transfer: 0 STRK to self
+                const calldata = CallData.compile({
+                  recipient: starknetAccount!.address,
+                  amount: uint256.bnToUint256(BigInt(0)),
+                });
 
-            const signedTransactions = await Promise.all(
-              signedTransactionPromises
-            );
+                const txCall = {
+                  contractAddress: STRK_TOKEN_ADDRESS,
+                  entrypoint: "transfer",
+                  calldata,
+                };
+
+                // Store the prepared transaction with its nonce
+                signedTransactions.push({
+                  call: txCall,
+                  nonce: currentNonce + BigInt(txIndex),
+                });
+              } catch (error) {
+                console.error(`Error preparing Starknet tx #${txIndex}:`, error);
+                signedTransactions.push(null);
+              }
+            }
 
             return {
               chainId,
-              nonce: 0,
+              nonce: Number(startingNonceResponse),
               starknet: {
                 provider,
                 account: starknetAccount,
@@ -1153,12 +1152,12 @@ export function useChainRace() {
               chain.id === 10143
                 ? 60000000000 // Monad has higher gas requirements
                 : chain.id === 8453
-                ? 2000000000 // Base mainnet
-                : chain.id === 17180
-                ? 1500000000 // Sonic
-                : chain.id === 6342
-                ? 3000000000 // MegaETH
-                : 1000000000 // Default fallback (1 gwei)
+                  ? 2000000000 // Base mainnet
+                  : chain.id === 17180
+                    ? 1500000000 // Sonic
+                    : chain.id === 6342
+                      ? 3000000000 // MegaETH
+                      : 1000000000 // Default fallback (1 gwei)
             );
 
             return {
@@ -1181,7 +1180,7 @@ export function useChainRace() {
       // Store fetched data in the Map
       const results = await Promise.all(chainDataPromises);
       results.forEach((data) => {
-        chainData.set(data.chainId, data);
+        return chainData.set(data.chainId, data);
       });
     } catch (error) {
       console.error("Error prefetching chain data:", error);
@@ -1218,9 +1217,9 @@ export function useChainRace() {
           const publicClient =
             chain.id !== 11155931
               ? createPublicClient({
-                  chain,
-                  transport: http(),
-                })
+                chain,
+                transport: http(),
+              })
               : null;
 
           // Run the specified number of transactions
@@ -1242,12 +1241,12 @@ export function useChainRace() {
                 chain.id === 10143
                   ? 60000000000 // Monad has higher gas requirements
                   : chain.id === 8453
-                  ? 2000000000 // Base mainnet
-                  : chain.id === 6342
-                  ? 3000000000 // MegaETH
-                  : chain.id === 17180
-                  ? 1500000000 // Sonic
-                  : 1000000000 // Default fallback (1 gwei)
+                    ? 2000000000 // Base mainnet
+                    : chain.id === 6342
+                      ? 3000000000 // MegaETH
+                      : chain.id === 17180
+                        ? 1500000000 // Sonic
+                        : 1000000000 // Default fallback (1 gwei)
               );
 
               const currentChainData = chainData.get(chainId) || {
@@ -1359,8 +1358,7 @@ export function useChainRace() {
                   !txToSend.startsWith("0x")
                 ) {
                   throw new Error(
-                    `Invalid transaction format for ${
-                      chain.name
+                    `Invalid transaction format for ${chain.name
                     } tx #${txIndex}: ${typeof txToSend}`
                   );
                 }
@@ -1497,10 +1495,10 @@ export function useChainRace() {
                 prev.map((r) =>
                   r.chainId === chainId
                     ? {
-                        ...r,
-                        status: "error" as const,
-                        error: errorMessage,
-                      }
+                      ...r,
+                      status: "error" as const,
+                      error: errorMessage,
+                    }
                     : r
                 )
               );
@@ -1698,10 +1696,10 @@ export function useChainRace() {
                 prev.map((r) =>
                   r.chainId === chainId
                     ? {
-                        ...r,
-                        status: "error" as const,
-                        error: errorMessage,
-                      }
+                      ...r,
+                      status: "error" as const,
+                      error: errorMessage,
+                    }
                     : r
                 )
               );
@@ -1911,10 +1909,10 @@ export function useChainRace() {
                 prev.map((r) =>
                   r.chainId === chainId
                     ? {
-                        ...r,
-                        status: "error" as const,
-                        error: errorMessage,
-                      }
+                      ...r,
+                      status: "error" as const,
+                      error: errorMessage,
+                    }
                     : r
                 )
               );
@@ -1986,11 +1984,11 @@ export function useChainRace() {
                 prev.map((r) =>
                   r.chainId === chainId
                     ? {
-                        ...r,
-                        txHash: response.hash.startsWith("0x")
-                          ? (response.hash as Hex)
-                          : (`0x${response.hash}` as Hex),
-                      }
+                      ...r,
+                      txHash: response.hash.startsWith("0x")
+                        ? (response.hash as Hex)
+                        : (`0x${response.hash}` as Hex),
+                    }
                     : r
                 )
               );
@@ -2080,10 +2078,179 @@ export function useChainRace() {
                 prev.map((r) =>
                   r.chainId === chainId
                     ? {
-                        ...r,
-                        status: "error" as const,
-                        error: errorMessage,
-                      }
+                      ...r,
+                      status: "error" as const,
+                      error: errorMessage,
+                    }
+                    : r
+                )
+              );
+              break;
+            }
+          }
+        } else if (isStarknetChain(chain)) {
+          // Starknet chain transaction processing
+          const currentChainData = chainData.get(chainId);
+
+          if (
+            !currentChainData ||
+            !currentChainData.signedTransactions||
+            !currentChainData.starknet 
+          ) {
+            console.error(`No Starknet client data for chain ${chainId}`);
+            return;
+          }
+
+          const { provider, account } = currentChainData.starknet;
+          // const account=starknetAccount;
+          // const provider =starknetProvider;
+          
+
+          // Run the specified number of transactions
+          for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
+            try {
+              // Skip if chain already had an error
+              const currentState = results.find((r) => r.chainId === chainId);
+              if (currentState?.status === "error") {
+                break;
+              }
+
+              let txLatency = 0;
+              const txStartTime = Date.now();
+
+              // Get the pre-prepared transaction
+              const preparedTransaction = currentChainData.signedTransactions[txIndex];
+              if (!preparedTransaction || typeof preparedTransaction !== "object") {
+                throw new Error(
+                  `No pre-prepared transaction available for Starknet tx #${txIndex}`
+                );
+              }
+
+              const { call, nonce } = preparedTransaction as unknown as {
+                call: any;
+                nonce: bigint;
+              };
+
+              // Execute the transaction
+              const { transaction_hash } = await account.execute([call], {
+                nonce,
+                maxFee: "0x1000000000000", // Set a reasonable max fee
+              });
+          
+
+              console.log(`✅ Sent Starknet tx ${txIndex} | Hash: ${transaction_hash}`);
+
+              // Wait for transaction confirmation
+              await provider.waitForTransaction(transaction_hash);
+
+              // Calculate transaction latency
+              const txEndTime = Date.now();
+              txLatency = txEndTime - txStartTime;
+
+              // Update result with transaction hash
+              setResults((prev) =>
+                prev.map((r) =>
+                  r.chainId === chainId
+                    ? {
+                      ...r,
+                      txHash: transaction_hash.startsWith("0x")
+                        ? (transaction_hash as Hex)
+                        : (`0x${transaction_hash}` as Hex),
+                    }
+                    : r
+                )
+              );
+
+              // Transaction confirmed, update completed count and track latencies
+              setResults((prev) => {
+                const updatedResults = prev.map((r) => {
+                  if (r.chainId === chainId) {
+                    const newLatencies = [...r.txLatencies, txLatency];
+                    const txCompleted = r.txCompleted + 1;
+                    const allTxCompleted = txCompleted >= transactionCount;
+
+                    const totalLatency =
+                      newLatencies.length > 0
+                        ? newLatencies.reduce((sum, val) => sum + val, 0)
+                        : undefined;
+
+                    const averageLatency =
+                      totalLatency !== undefined
+                        ? Math.round(totalLatency / newLatencies.length)
+                        : undefined;
+
+                    const newStatus:
+                      | "pending"
+                      | "racing"
+                      | "success"
+                      | "error" = allTxCompleted ? "success" : "racing";
+
+                    return {
+                      ...r,
+                      txCompleted,
+                      status: newStatus,
+                      txLatencies: newLatencies,
+                      averageLatency,
+                      totalLatency,
+                    };
+                  }
+                  return r;
+                });
+
+                // Only determine rankings when chains finish all transactions
+                const finishedResults = updatedResults
+                  .filter((r) => r.status === "success")
+                  .sort(
+                    (a, b) =>
+                      (a.averageLatency || Infinity) -
+                      (b.averageLatency || Infinity)
+                  );
+
+                // Assign positions to finished results
+                finishedResults.forEach((result, idx) => {
+                  const position = idx + 1;
+                  updatedResults.forEach((r, i) => {
+                    if (r.chainId === result.chainId) {
+                      updatedResults[i] = { ...r, position };
+                    }
+                  });
+                });
+
+                return updatedResults;
+              });
+            } catch (error) {
+              console.error(
+                `Starknet race error for chain ${chainId}, tx #${txIndex}:`,
+                error
+              );
+
+              let errorMessage = "Starknet transaction failed";
+
+              if (error instanceof Error) {
+                const fullMessage = error.message;
+
+                if (fullMessage.includes("insufficient funds")) {
+                  errorMessage = "Insufficient STRK for transaction fees.";
+                } else if (fullMessage.includes("timeout")) {
+                  errorMessage = "Starknet network timeout. Please try again.";
+                } else if (fullMessage.includes("Invalid transaction nonce")) {
+                  errorMessage = "Transaction nonce error. Please try again.";
+                } else if (fullMessage.includes("REJECTED")) {
+                  errorMessage = "Transaction rejected by Starknet.";
+                } else {
+                  const firstLine = fullMessage.split("\n")[0];
+                  errorMessage = firstLine || fullMessage;
+                }
+              }
+
+              setResults((prev) =>
+                prev.map((r) =>
+                  r.chainId === chainId
+                    ? {
+                      ...r,
+                      status: "error" as const,
+                      error: errorMessage,
+                    }
                     : r
                 )
               );
@@ -2097,13 +2264,13 @@ export function useChainRace() {
           prev.map((r) =>
             r.chainId === chainId
               ? {
-                  ...r,
-                  status: "error" as const,
-                  error:
-                    error instanceof Error
-                      ? error.message
-                      : "Race initialization failed",
-                }
+                ...r,
+                status: "error" as const,
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Race initialization failed",
+              }
               : r
           )
         );
@@ -2149,12 +2316,12 @@ export function useChainRace() {
       prev.map((r) =>
         r.chainId === chainId
           ? {
-              ...r,
-              status: "success" as const, // Use const assertion to ensure correct type
-              txCompleted: r.txTotal, // Mark all transactions as completed
-              position: 999, // Put it at the end of the results
-              error: "Skipped by user",
-            }
+            ...r,
+            status: "success" as const, // Use const assertion to ensure correct type
+            txCompleted: r.txTotal, // Mark all transactions as completed
+            position: 999, // Put it at the end of the results
+            error: "Skipped by user",
+          }
           : r
       )
     );

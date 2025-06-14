@@ -1,8 +1,11 @@
-import { Contract, Provider, RpcProvider } from "starknet";
+
+import { Contract, RpcProvider } from "starknet";
+
 const SEPOLIA_RPC_URL = "https://starknet-sepolia.public.blastapi.io/rpc/v0_8";
 // STRK token contract address on Starknet Mainnet
 const STRK_TOKEN_ADDRESS =
   "0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D";
+
 
 // STRK token ABI - minimal for balanceOf function
 const STRK_ABI = [
@@ -15,23 +18,37 @@ const STRK_ABI = [
   },
 ];
 
-// Your wallet address (Starknet account)
-const WALLET_ADDRESS =
-  "0x04c3aaa63a76D6764844123710CAb79Ea187566872920e30e2dF36d4d7E70888";
 
-export async function getSTRKBalance() {
+
+
+
+
+export async function getSTRKBalance(starknetAccountAddress: string) {
+  if (
+    starknetAccountAddress === null ||
+    starknetAccountAddress === undefined ||
+    typeof starknetAccountAddress === "boolean"
+  ) {
+    throw new Error("Invalid starknetAccountAddress: must be string, number, bigint, or object and not null/undefined/boolean");
+  }
+
   const provider = new RpcProvider({
     nodeUrl: SEPOLIA_RPC_URL,
   });
 
-  console.log({ provider });
   const strkContract = new Contract(STRK_ABI, STRK_TOKEN_ADDRESS, provider);
-  console.log({ strkContract });
   try {
-    const balance = await strkContract.call("balanceOf", [WALLET_ADDRESS]);
-    console.log(`STRK Balance for ${WALLET_ADDRESS}:`, balance?.balance?.toString());
-    return Number(balance?.balance); // Convert from wei to STRK 
+    const result = await strkContract.call("balanceOf", [starknetAccountAddress]);
+    // The result is usually an array or a string, depending on the ABI and starknet.js version
+    const balance =
+      Array.isArray(result) ? result[0] : (typeof result === "object" && "balance" in result ? result.balance : result);
+    console.log(`STRK Balance for ${starknetAccountAddress}:`, balance?.toString());
+    return Number(balance); // Convert from wei to STRK 
   } catch (error) {
-    console.error("Error fetching STRK balance:", error.message);
+    if (error instanceof Error) {
+      console.error("Error fetching STRK balance:", error.message);
+    } else {
+      console.error("Error fetching STRK balance:", error);
+    }
   }
 }

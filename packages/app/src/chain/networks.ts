@@ -14,7 +14,7 @@ import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 import { sonicBlaze } from "./sonicblaze";
 import { fuelChains, type FuelChainConfig } from "@/fuel/config";
 import { aptosChains, type AptosChainConfig } from "@/aptos/config";
-import { starknetChains } from "@/starknet/config";
+import { StarknetChainConfig, starknetChains } from "@/starknet/config";
 export interface ChainConfig extends Chain {
   testnet: boolean;
   color: string; // For UI styling
@@ -175,4 +175,5 @@ export type AnyChainConfig =
   | ChainConfig
   | SolanaChainConfig
   | FuelChainConfig
-  | AptosChainConfig;
+  | AptosChainConfig
+| StarknetChainConfig;
