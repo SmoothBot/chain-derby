@@ -30,13 +30,13 @@ import { StarknetChainConfig } from "@/starknet/config";
 import { Erc20Abi } from "../util/erc20abi";
 import { STRK_ADDRESS } from "../util/erc20Contract";
 import {
-  AccountInterface,
   cairo,
   Call,
   Contract,
   RpcProvider, 
 } from "starknet";
 import { Account } from "starknet";
+import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 
 export type ChainRaceStatus = "idle" | "funding" | "ready" | "racing" | "finished";
 
@@ -147,7 +147,7 @@ export function useChainRace() {
   const { wallet: fuelWallet, isReady: fuelReady } = useFuelEmbeddedWallet();
   const { account: aptosAccount, address: aptosAddress, isReady: aptosReady } = useAptosEmbeddedWallet();
   const { publicKey: soonPublicKey, keypair: soonKeypair, isReady: soonReady } = useSoonEmbeddedWallet();
-  const { starknetprivateKey, starknetaccount, starknetisReady, resetWallet: resetStarknetWallet } = useStarknetEmbeddedWallet();
+  const { starknetprivateKey, starknetaccount, starknetisReady } = useStarknetEmbeddedWallet();
   const [status, setStatus] = useState<ChainRaceStatus>("idle");
   const [balances, setBalances] = useState<ChainBalance[]>([]);
   const [results, setResults] = useState<RaceResult[]>([]);
@@ -307,9 +307,6 @@ export function useChainRace() {
     try {
       // Check balances for all chains regardless of selection
       const activeChains = allChains;
-
-      // Add a small delay to avoid overwhelming network requests on page load
-      await new Promise(resolve => setTimeout(resolve, 500));
 
       const balancePromises = activeChains.map(async (chain) => {
         // Function to attempt a balance check with retries
@@ -519,16 +516,11 @@ export function useChainRace() {
 
       const newBalances = await Promise.all(balancePromises);
 
-      // Log any errors that occurred during balance checks
-      newBalances.forEach(balance => {
-        if (balance.error) {
-          const chain = allChains.find(c => (isEvmChain(c) ? c.id : c.id) === balance.chainId);
-          console.warn(`Error checking balance for ${chain?.name || balance.chainId}: ${balance.error}`);
-        }
-      });
-
       // Don't update state if component unmounted during the operation
-      if (!account) return;
+      if (!account) {
+        setIsLoadingBalances(false);
+        return;
+      }
 
       setBalances(newBalances);
 
@@ -537,20 +529,17 @@ export function useChainRace() {
         selectedChains.includes(b.chainId)
       );
 
-      // If all selected chains have balance, set status to ready
-      const allSelectedFunded = selectedBalances.length > 0 && selectedBalances.every(b => b.hasBalance);
+      const fundedChains = newBalances
+        .filter(b => b.hasBalance)
+        .map(b => b.chainId);
 
-      // Only proceed with FUNDED chains
-      const fundedChains = selectedBalances.filter(b => b.hasBalance).map(b => b.chainId);
+      const allSelectedFunded = selectedBalances.every(b => b.hasBalance);
 
-      // Only update status if not in racing or finished state
       if (status !== "racing" && status !== "finished") {
         if (allSelectedFunded && selectedBalances.length > 0) {
           setStatus("ready");
         } else if (fundedChains.length > 0) {
-          // If at least one chain is funded, allow race to start with those chains
           setStatus("ready");
-          // Update selected chains to only those that are funded
           setSelectedChains(fundedChains);
         } else {
           setStatus("funding");
@@ -558,68 +547,35 @@ export function useChainRace() {
       }
     } catch (error) {
       console.error("Failed to check balances:", error);
-      // Set status to funding if there's an error
       if (status !== "racing" && status !== "finished") {
         setStatus("funding");
       }
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [account, solanaPublicKey, solanaReady, fuelWallet, fuelReady, aptosAccount, aptosReady, soonPublicKey, soonReady, status, selectedChains, starknetisReady, starknetaccount]);
+  }, [account, solanaPublicKey, solanaReady, fuelWallet, fuelReady, aptosAccount, aptosReady, status, selectedChains, allChains]);
 
-  // Effect to check balances automatically when all wallets are ready
+  // Effect to check initial balances
   useEffect(() => {
     const checkInitialBalances = async () => {
-      // If already initialized or loading, don't proceed
-      if (isLoadingBalances) {
+      if (isLoadingBalances || status === "racing" || status === "finished") {
         return;
       }
 
-      // Wait for all wallets to be ready
-      if (!isReady || !solanaReady || !fuelReady || !aptosReady || !soonReady || !starknetisReady) {
-        console.log('Waiting for all wallets to be ready...');
+      if (!account || !solanaReady || !solanaPublicKey || !fuelReady || !fuelWallet || !aptosReady || !aptosAccount || !starknetaccount) {
         return;
       }
-
-      // Additional check for required wallet data
-      if (!account || !solanaPublicKey || !fuelWallet || !aptosAccount || !starknetaccount) {
-        console.log('Waiting for wallet data...');
-        return;
-      }
-
-      // Set loading state
-      setIsLoadingBalances(true);
 
       try {
-        // Add a small delay to ensure everything is fully initialized
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Only proceed if we're not already racing or finished
-        if (status !== "racing" && status !== "finished") {
-          console.log('Starting initial balance check...');
-          await checkBalances();
-        }
-      } finally {
+        await checkBalances();
+      } catch (error) {
+        console.error('Error checking balances:', error);
         setIsLoadingBalances(false);
       }
     };
 
     checkInitialBalances();
-  }, [
-    isReady, 
-    solanaReady, 
-    fuelReady, 
-    aptosReady, 
-    soonReady, 
-    starknetisReady,
-    account,
-    solanaPublicKey,
-    fuelWallet,
-    aptosAccount,
-    starknetaccount,
-    status,
-    isLoadingBalances
-  ]);
+  }, [status, checkBalances, account, solanaReady, solanaPublicKey, fuelReady, fuelWallet, aptosReady, aptosAccount, starknetaccount]);
 
   
 
@@ -750,7 +706,7 @@ export function useChainRace() {
       wallet?: WalletUnlocked; // For Fuel chains
       starknet?: {
         provider: RpcProvider;
-        account: any;
+        account: Account;
       };
     }>();
 
@@ -2042,7 +1998,7 @@ export function useChainRace() {
           const erc20Contract = new Contract(Erc20Abi, STRK_ADDRESS, account);
           
           for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
-            let currentNonce = await account.getNonce();
+            const currentNonce = await account.getNonce();
             try {
               // Skip if chain already had an error
               const currentState = results.find(r => r.chainId === chainId);

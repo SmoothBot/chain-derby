@@ -31,24 +31,16 @@ export default function Home() {
   
   useEffect(() => {
     const initializeApp = async () => {
-      if (isInitialized || isLoadingBalances) {
+      if (isInitialized) {
         return;
       }
-
       // Add a small delay to ensure all components are mounted
       await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Only check balances if we're in an initial state
-      if (status === "idle" || status === "funding") {
-        console.log('Starting initial balance check from page...');
-        await checkBalances();
-      }
-
       setIsInitialized(true);
     };
 
     initializeApp();
-  }, [status, isInitialized, isLoadingBalances, checkBalances]);
+  }, [isInitialized]);
 
   useEffect(() => {
     const isRacingOrFinished = (s: ChainRaceStatus) => s === "racing" || s === "finished";

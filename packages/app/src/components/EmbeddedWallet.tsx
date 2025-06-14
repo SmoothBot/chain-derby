@@ -8,7 +8,7 @@ import { useAptosEmbeddedWallet } from "@/hooks/useAptosEmbeddedWallet";
 import { useSoonEmbeddedWallet } from "@/hooks/useSoonEmbeddedWallet";
 import { useStarknetEmbeddedWallet } from "@/hooks/useStarknetEmbeddedWallet";
 import { CopyIcon, Eye, EyeOff } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export function EmbeddedWallet() {
   const { account, privateKey } = useChainRaceContext();
@@ -16,7 +16,7 @@ export function EmbeddedWallet() {
   const { address: fuelAddress, secret: fuelSecret, isReady: fuelReady } = useFuelEmbeddedWallet();
   const { address: aptosAddress, privateKey: aptosPrivateKey, isReady: aptosReady } = useAptosEmbeddedWallet();
   const { publicKey: soonPublicKey, secret: soonSecret, isReady: soonReady } = useSoonEmbeddedWallet();
-  const { starknetprivateKey, starknetaccount, starknetisReady, resetWallet, progress } = useStarknetEmbeddedWallet();
+  const { starknetprivateKey, starknetaccount, progress } = useStarknetEmbeddedWallet();
   const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | "soon-address" | "soon-key" | "starknet-address" | "starknet-key" | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [showSolanaKey, setShowSolanaKey] = useState(false);
