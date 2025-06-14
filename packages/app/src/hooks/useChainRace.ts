@@ -1165,7 +1165,7 @@ export function useChainRace() {
               aptos,
               signedTransactions,
             };
-          } else if (isStarknetChain(chain)) {
+          }  else if (isStarknetChain(chain)) {
             const provider = new RpcProvider({ nodeUrl: chain?.rpcUrl });
             console.log({ chain });
 
@@ -1217,7 +1217,8 @@ export function useChainRace() {
               },
               signedTransactions,
             };
-          } else {
+          }
+          else {
             throw new Error(`Unsupported chain type: ${chainId}`);
           }
         } catch (fetchError) {
@@ -2214,17 +2215,14 @@ export function useChainRace() {
 
               // Execute the transaction
               const { transaction_hash } = await account.execute([call], {
-                nonce,
-                maxFee: "0x1000000000000"
+                nonce
               });
 
 
               console.log(`✅ Sent Starknet tx ${txIndex} | Hash: ${transaction_hash}`);
 
               // Wait for transaction confirmation
-              await provider.waitForTransaction(transaction_hash, {
-                successStates: ["ACCEPTED_ON_L2"]
-              });
+              await provider.waitForTransaction(transaction_hash);
 
               // Calculate transaction latency
               const txEndTime = Date.now();
