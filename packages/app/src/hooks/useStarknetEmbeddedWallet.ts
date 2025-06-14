@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -140,9 +141,6 @@ export function useStarknetEmbeddedWallet() {
       }));
 
       console.log("🔐 New Starknet Wallet Created:");
-      console.log("Private Key:", privateKey);
-      console.log("Public Key:", publicKey);
-      console.log("Precomputed Account Address:", accountAddress);
     } catch (error) {
       console.error("Failed to create Starknet wallet:", error);
       setWalletState((prev) => ({ ...prev, isReady: true }));
@@ -158,12 +156,10 @@ export function useStarknetEmbeddedWallet() {
       );
       console.log("💰 Funding new account:", newAccountAddress);
 
-      console.log("💸 Sending 0.00001 ETH to new account...");
-
-      console.log(faucetAccount)
+      console.log("💸 Sending 0.1 ETH to new account...");
 
     
-      const amountInWei = uint256.bnToUint256(BigInt(1e15)); 
+      const amountInWei = uint256.bnToUint256(BigInt(1e17)); 
 
       const transferCall = {
         contractAddress:
@@ -191,8 +187,6 @@ export function useStarknetEmbeddedWallet() {
   ): Promise<void> => {
     try {
       console.log("🚀 Deploying account...")
-      console.log("Public Key:", publicKey)
-      console.log("Account Address:", account.address);
       const constructorCallData = CallData.compile({ publicKey });
 
       const deployPayload = {

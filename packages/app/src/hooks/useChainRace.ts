@@ -670,6 +670,9 @@ export function useChainRace() {
           // Convert results to the API payload format
           const chainResults: ChainResultPayload[] = results.map((result) => {
             // Convert string chain IDs to numeric IDs for API compatibility
+            console.log(
+              `Processing chain result for ${result.name} (${result.chainId})`
+            );
             let numericChainId: number;
             if (typeof result.chainId === "string") {
               if (result.chainId.includes("solana")) {
@@ -678,7 +681,7 @@ export function useChainRace() {
                 numericChainId = 999998; // Aptos testnet gets ID 999998
               } else if (result.chainId.includes("aptos-mainnet")) {
                 numericChainId = 999997; // Aptos mainnet gets ID 999997
-              } else if (result.chainId.includes("starknet")) {
+              } else if (result.chainId.toLowerCase().includes(sepolia.id.toString())) {
                 numericChainId = 10000000;
               } else {
                 numericChainId = 999996; // Other string IDs get 999996
@@ -2101,9 +2104,8 @@ export function useChainRace() {
             return;
           }
 
-          const { provider, account } = currentChainData.starknet;
-          // const account=starknetAccount;
-          // const provider =starknetProvider;
+          const {  account } = currentChainData.starknet;
+          const provider =starknetProvider;
           
 
           // Run the specified number of transactions
@@ -2125,23 +2127,27 @@ export function useChainRace() {
                   `No pre-prepared transaction available for Starknet tx #${txIndex}`
                 );
               }
+              console.log("Prepared transaction:", preparedTransaction);
 
               const { call, nonce } = preparedTransaction as unknown as {
                 call: any;
                 nonce: bigint;
               };
 
+
               // Execute the transaction
               const { transaction_hash } = await account.execute([call], {
                 nonce,
-                maxFee: "0x1000000000000", // Set a reasonable max fee
+                maxFee: "0x1000000000000" 
               });
           
 
               console.log(`✅ Sent Starknet tx ${txIndex} | Hash: ${transaction_hash}`);
 
               // Wait for transaction confirmation
-              await provider.waitForTransaction(transaction_hash);
+           await provider.waitForTransaction(transaction_hash, {
+  successStates: ["ACCEPTED_ON_L2"]
+});
 
               // Calculate transaction latency
               const txEndTime = Date.now();
