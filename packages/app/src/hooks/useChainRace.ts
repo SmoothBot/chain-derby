@@ -1165,7 +1165,7 @@ export function useChainRace() {
               aptos,
               signedTransactions,
             };
-          }  else if (isStarknetChain(chain)) {
+          } else if (isStarknetChain(chain)) {
             const provider = new RpcProvider({ nodeUrl: chain?.rpcUrl });
             console.log({ chain });
 
@@ -1177,7 +1177,9 @@ export function useChainRace() {
             const startingNonceResponse = await provider.getNonceForAddress(
               starknetAccount!.address
             );
-       
+
+            console.log({ startingNonceResponse })
+
             const currentNonce = BigInt(startingNonceResponse);
 
             // Pre-build all transactions
@@ -2182,8 +2184,12 @@ export function useChainRace() {
             return;
           }
 
-          const { account,provider } = currentChainData.starknet;
-  
+
+
+
+          const provider = new RpcProvider({ nodeUrl: chain?.rpcUrl })
+          const account = new Account(provider, starknetAccountAddress!, starknetPrivateKey!)
+
 
 
           // Run the specified number of transactions
@@ -2205,6 +2211,7 @@ export function useChainRace() {
                   `No pre-prepared transaction available for Starknet tx #${txIndex}`
                 );
               }
+              console.log({ currentChainData })
               console.log("Prepared transaction:", preparedTransaction);
 
               const { call, nonce } = preparedTransaction as unknown as {
