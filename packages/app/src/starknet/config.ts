@@ -1,4 +1,4 @@
-import { sepolia } from "@starknet-react/chains";
+import { mainnet, sepolia } from "@starknet-react/chains";
 export interface StarknetChainConfig {
     id: string;
     name: string;
@@ -23,7 +23,7 @@ export interface StarknetChainConfig {
     id: sepolia.id.toString(), // Use the Starknet Sepolia ID
     name: sepolia.name, // Use the Starknet Sepolia name
     network: sepolia.network, // Use the Starknet Sepolia network type
-    rpcUrl: process.env.NEXT_PUBLIC_APTOS_TESTNET_RPC_URL || 'https://starknet-sepolia.blastapi.io',
+    rpcUrl: process.env.NEXT_PUBLIC_APTOS_TESTNET_RPC_URL || 'https://starknet-sepolia.public.blastapi.io/rpc/v0_8',
     indexerUrl: 'https://indexer-testnet.staging.gcp.aptosdev.com/v1/graphql',
     faucetUrl: 'https://starknet-faucet.vercel.app/',
     explorerUrl: 'https://sepolia.voyager.online',
@@ -33,19 +33,41 @@ export interface StarknetChainConfig {
       decimals: 18,
     },
     testnet: true,
-    color: 'orange',
+    color: '#2b2482',
     logo: '/logos/starknet.png',
     layer: 'L2' as const,
   };
 
+  export const starknetMainnet: StarknetChainConfig = {
+  id: mainnet.id.toString(),
+  name: 'Starknet Mainnet',
+  network: 'mainnet',
+  rpcUrl: process.env.NEXT_PUBLIC_STARKNET_MAINNET_RPC_URL || 'https://starknet-mainnet.public.blastapi.io/rpc/v0_8',
+  indexerUrl: 'https://indexer.mainnet.starknet.io/v1/graphql',
+  faucetUrl: undefined, 
+  explorerUrl: 'https://voyager.online',
+  nativeCurrency: {
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18,
+  },
+  testnet: false,
+  color: '#2b2482',
+  logo: '/logos/starknet.png',
+  layer: 'L2' as const,
+};
+
+
   
   // Export all Aptos chains
   export const starknetChains: StarknetChainConfig[] = [
-    starknetTestnet
+    starknetTestnet,
+    starknetMainnet
   ];
   
   // Helper function to check if a chain is an Aptos chain
   export function isStarknetChain(chain: unknown): chain is StarknetChainConfig {
+    console.log("Checking if chain is Starknet:", chain);
     return typeof chain === 'object' && 
            chain !== null && 
            'id' in chain && 

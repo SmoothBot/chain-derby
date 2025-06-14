@@ -19,6 +19,8 @@ interface StarknetWalletState {
   isReady: boolean;
   isDeployed: boolean;         // New state to track deployment
   account: Account | null;
+  isDeployedMainnet: boolean; // New state to track mainnet deployment
+  accountMainnet: Account | null; // New state for mainnet account
 }
 
 const STARKNET_STORAGE_KEY = "horse-race-starknet-wallet";
@@ -26,9 +28,14 @@ const STARKNET_STORAGE_KEY = "horse-race-starknet-wallet";
 const OZ_ACCOUNT_CLASS_HASH =
   "0x061dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f";
 
-const provider = new RpcProvider({
+const SEPOLIA_PROVIDER = new RpcProvider({
   nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_8",
 });
+
+const MAINNET_PROVIDER = new RpcProvider({
+  nodeUrl: "https://starknet-mainnet.public.blastapi.io/rpc/v0_8",
+});
+
 
 // Faucet account to fund new accounts on Sepolia testnet
 const FAUCET_ADDRESS = '0x04CdC96D916EC00CD0c9Af6B00E9018AEac1F959BFffa3E1024EB41331c70F40';
@@ -41,7 +48,9 @@ export function useStarknetEmbeddedWallet() {
     accountAddress: null,
     isReady: false,
     isDeployed: false,
+    isDeployedMainnet: false,
     account: null,
+    accountMainnet: null,
   });
 
   useEffect(() => {
@@ -53,18 +62,22 @@ export function useStarknetEmbeddedWallet() {
           const publicKey = ec.starkCurve.getStarkKey(privateKey);
           const accountAddress = calculateAccountAddress(publicKey);
 
-          const account = new Account(provider, accountAddress, privateKey);
+          const accountSepolia = new Account(SEPOLIA_PROVIDER, accountAddress, privateKey);
+          const accountMainnet = new Account(MAINNET_PROVIDER, accountAddress, privateKey);
 
           // Check if deployed
-          const isDeployed = await checkIfDeployed(accountAddress);
+          const isDeployedSepolia = await checkIfDeployed(SEPOLIA_PROVIDER, accountAddress);
+          const isDeployedMainnet = await checkIfDeployed(MAINNET_PROVIDER, accountAddress);
 
           setWalletState({
             privateKey,
             publicKey,
             accountAddress,
             isReady: true,
-            isDeployed,
-            account,
+            isDeployed: isDeployedSepolia,
+            isDeployedMainnet,
+            account: accountSepolia,
+            accountMainnet: isDeployedMainnet ? accountMainnet : null,
           });
         } catch (error) {
           console.error("Failed to restore Starknet wallet:", error);
@@ -78,7 +91,7 @@ export function useStarknetEmbeddedWallet() {
     initWallet();
   }, []);
 
-  const checkIfDeployed = async (address: string): Promise<boolean> => {
+  const checkIfDeployed = async (provider: RpcProvider, address: string): Promise<boolean> => {
     try {
       // This call fails if no contract deployed at address
       await provider.getClassHashAt(address);
@@ -109,10 +122,11 @@ export function useStarknetEmbeddedWallet() {
 
       localStorage.setItem(
         STARKNET_STORAGE_KEY,
-        JSON.stringify({ privateKey,accountAddress, publicKey })
+        JSON.stringify({ privateKey, accountAddress, publicKey })
       );
 
-      const account = new Account(provider, accountAddress, privateKey);
+      const accountSepolia = new Account(SEPOLIA_PROVIDER, accountAddress, privateKey);
+      const accountMainnet = new Account(MAINNET_PROVIDER, accountAddress, privateKey);
 
       setWalletState({
         privateKey,
@@ -120,7 +134,9 @@ export function useStarknetEmbeddedWallet() {
         accountAddress,
         isReady: true,
         isDeployed: false,
-        account,
+        isDeployedMainnet: false,
+        account: accountSepolia,
+        accountMainnet: accountMainnet,
       });
 
       // Fund account with testnet ETH (needed for deploy gas)
@@ -132,7 +148,7 @@ export function useStarknetEmbeddedWallet() {
       }, 10000);
 
       // Deploy the account contract
-      await deployAccount(account, publicKey);
+      await deployAccount(accountSepolia,accountMainnet, publicKey);
 
       // Update deployment state after deployment confirmed
       setWalletState((prev) => ({
@@ -147,67 +163,84 @@ export function useStarknetEmbeddedWallet() {
     }
   };
 
-  const fundAccount = async (newAccountAddress: string): Promise<void> => {
-    try {
-      const faucetAccount = new Account(
-        provider,
-        FAUCET_ADDRESS,
-        FAUCET_PRIVATE_KEY
-      );
-      console.log("💰 Funding new account:", newAccountAddress);
-
-      console.log("💸 Sending 0.1 ETH to new account...");
-
-    
-      const amountInWei = uint256.bnToUint256(BigInt(1e17)); 
-
-      const transferCall = {
-        contractAddress:
-          "0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D", // strk contract address on Sepolia
-        entrypoint: "transfer",
-        calldata: CallData.compile({
-          recipient: newAccountAddress,
-          amount: amountInWei,
-        }),
-      };
-
-      const { transaction_hash } = await faucetAccount.execute(transferCall);
-      console.log("💸 Funding tx hash fund:", transaction_hash);
-
-      await provider.waitForTransaction(transaction_hash);
-      console.log("✅ Funding confirmed");
-    } catch (error) {
-      console.error("❌ Funding failed:", error);
-    }
+ const fundAccount = async (newAccountAddress: string): Promise<void> => {
+  const amountInWei = uint256.bnToUint256(BigInt(1e17)); // 0.1 ETH
+  const transferCall = {
+    contractAddress: "0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D", // STRK contract Sepolia
+    entrypoint: "transfer",
+    calldata: CallData.compile({
+      recipient: newAccountAddress,
+      amount: amountInWei,
+    }),
   };
 
-  const deployAccount = async (
-    account: Account,
-    publicKey: string
-  ): Promise<void> => {
-    try {
-      console.log("🚀 Deploying account...")
-      const constructorCallData = CallData.compile({ publicKey });
+  const faucetAccountSepolia = new Account(SEPOLIA_PROVIDER, FAUCET_ADDRESS, FAUCET_PRIVATE_KEY);
+  const faucetAccountMainnet = new Account(MAINNET_PROVIDER, FAUCET_ADDRESS, FAUCET_PRIVATE_KEY);
 
-      const deployPayload = {
-        classHash: OZ_ACCOUNT_CLASS_HASH,
-        constructorCalldata: constructorCallData,
-        addressSalt: BigInt(publicKey),
-      };
+  console.log("💰 Funding new account:", newAccountAddress);
 
-      const { transaction_hash, contract_address } = await account.deployAccount(
-        deployPayload
-      );
+  // Fund Sepolia
+  try {
+    console.log("💸 Sending 0.1 ETH on Sepolia...");
+    const { transaction_hash } = await faucetAccountSepolia.execute(transferCall);
+    console.log("💸 Sepolia tx hash:", transaction_hash);
+    await SEPOLIA_PROVIDER.waitForTransaction(transaction_hash);
+    console.log("✅ Sepolia funding confirmed");
+  } catch (error) {
+    console.error("❌ Sepolia funding failed:", error);
+  }
 
-      console.log("🚀 Deployment tx hash:", transaction_hash);
-      console.log("📬 Contract deployed at:", contract_address);
+  // Fund Mainnet
+  try {
+    console.log("💸 Sending 0.1 ETH on Mainnet...");
+    const { transaction_hash } = await faucetAccountMainnet.execute(transferCall);
+    console.log("💸 Mainnet tx hash:", transaction_hash);
+    await MAINNET_PROVIDER.waitForTransaction(transaction_hash);
+    console.log("✅ Mainnet funding confirmed");
+  } catch (error) {
+    console.error("❌ Mainnet funding failed:", error);
+  }
+};
 
-      await provider.waitForTransaction(transaction_hash);
-      console.log("✅ Account deployment confirmed");
-    } catch (error) {
-      console.error("❌ Deployment failed:", error);
-    }
+
+ const deployAccount = async (
+  account: Account,
+  accountMainnet: Account,
+  publicKey: string
+): Promise<void> => {
+  const constructorCallData = CallData.compile({ publicKey });
+  const deployPayload = {
+    classHash: OZ_ACCOUNT_CLASS_HASH,
+    constructorCalldata: constructorCallData,
+    addressSalt: BigInt(publicKey),
   };
+
+  // Deploy Sepolia
+  try {
+    console.log("🚀 Deploying account on Sepolia...");
+    const { transaction_hash, contract_address } = await account.deployAccount(deployPayload);
+    console.log("🚀 Sepolia deployment tx hash:", transaction_hash);
+    console.log("📬 Sepolia Contract deployed at:", contract_address);
+    await SEPOLIA_PROVIDER.waitForTransaction(transaction_hash);
+    console.log("✅ Sepolia deployment confirmed");
+  } catch (error) {
+    console.error("❌ Sepolia deployment failed:", error);
+  }
+
+  // Deploy Mainnet
+  try {
+    console.log("🚀 Deploying account on Mainnet...");
+    const { transaction_hash: mainnetTxn, contract_address: mainnetAddress } =
+      await accountMainnet.deployAccount(deployPayload);
+    console.log("🚀 Mainnet deployment tx hash:", mainnetTxn);
+    console.log("📬 Mainnet Contract deployed at:", mainnetAddress);
+    await MAINNET_PROVIDER.waitForTransaction(mainnetTxn);
+    console.log("✅ Mainnet deployment confirmed");
+  } catch (error) {
+    console.error("❌ Mainnet deployment failed:", error);
+  }
+};
+
 
 
   const resetWallet = () => {
@@ -217,7 +250,8 @@ export function useStarknetEmbeddedWallet() {
 
   return {
     ...walletState,
-    provider,
+    SEPOLIA_PROVIDER,
+    MAINNET_PROVIDER,
     resetWallet,
     createNewWallet
   };

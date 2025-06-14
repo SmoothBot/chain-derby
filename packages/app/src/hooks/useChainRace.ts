@@ -144,7 +144,7 @@ function isFuelChain(chain: AnyChainConfig): chain is FuelChainConfig {
 }
 
 function isStarknetChain(chain: AnyChainConfig): chain is StarknetChainConfig {
-  return chain.name === "Starknet Sepolia Testnet";
+  return chain.name === "Starknet Sepolia Testnet" || chain.name === "Starknet Mainnet";
 }
 
 function isAptosChain(chain: AnyChainConfig): chain is AptosChainConfig {
@@ -177,7 +177,7 @@ function getSolanaFallbackEndpoints(chain: SolanaChainConfig): string[] {
 
 export function useChainRace() {
   const { account, privateKey, isReady, resetWallet } = useEmbeddedWallet();
-  const { accountAddress: starknetAccountAddress, account: starknetAccount,provider:starknetProvider } = useStarknetEmbeddedWallet();
+  const { accountAddress: starknetAccountAddress, account: starknetAccount, SEPOLIA_PROVIDER: starknetProviderSepolia,MAINNET_PROVIDER:starknetProviderMainnet } = useStarknetEmbeddedWallet();
   const {
     publicKey: solanaPublicKey,
     keypair: solanaKeypair,
@@ -379,6 +379,10 @@ export function useChainRace() {
             let balance: bigint;
             const chainId = chain.id;
 
+            console.log(
+              `Checking balance for chain ${chain.name} (${chainId})...`
+            );
+
             if (isEvmChain(chain)) {
               // EVM chain balance check
               const client = createPublicClient({
@@ -471,16 +475,53 @@ export function useChainRace() {
                 hasBalance,
               };
             } else if (isStarknetChain(chain)) {
-              const strkBalance = await getSTRKBalance(starknetAccountAddress);
-              balance = typeof strkBalance === "bigint" ? strkBalance : BigInt(strkBalance ?? 0);
-              const hasBalance = balance > BigInt(1e14);
+              console.log("Checking Starknet balance for:", chain);
 
+              // Helper for timeout
+              async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+                return Promise.race([
+                  promise,
+                  new Promise<T>((_, reject) =>
+                    setTimeout(() => reject(new Error("Starknet balance fetch timed out")), timeoutMs)
+                  ),
+                ]);
+              }
+
+              let balance: bigint = BigInt(0);
+
+              try {
+                const result = await withTimeout(
+                  getSTRKBalance(starknetAccountAddress, chain),
+                  5000 // 5-second timeout
+                );
+
+                balance = typeof result === "bigint" ? result : BigInt(result ?? 0);
+              } catch (err) {
+                console.error("❌ Starknet balance fetch failed or timed out:", err);
+                return {
+                  chainId: chain.id.toString(),
+                  balance,
+                  hasBalance: false,
+                };
+              }
+
+              if (balance === BigInt(0)) {
+                console.warn("⚠️ Starknet balance is zero");
+                return {
+                  chainId: chain.id.toString(),
+                  balance,
+                  hasBalance: false,
+                };
+              }
+
+              const hasBalance = balance > BigInt(1e14); // your threshold
               return {
-                chainId: sepolia.id.toString(),
+                chainId: chain.id.toString(),
                 balance,
                 hasBalance,
               };
-            } else {
+            }
+            else {
               throw new Error(`Unsupported chain type: ${chainId}`);
             }
           } catch (error) {
@@ -811,7 +852,7 @@ export function useChainRace() {
         connection?: Connection; // For Solana chains
         aptos?: Aptos; // For Aptos chains
         wallet?: WalletUnlocked; // For Fuel chains
-        starknet?:any
+        starknet?: any
       }
     >();
 
@@ -1093,7 +1134,7 @@ export function useChainRace() {
               signedTransactions,
             };
           } else if (isStarknetChain(chain)) {
-            const provider = chainData.get(chainId)?.starknet?.provider || starknetProvider
+            const provider = chainData.get(chainId)?.starknet?.provider
 
             console.log(`Fetching Starknet data for ${chain.name}...`);
 
@@ -2097,16 +2138,16 @@ export function useChainRace() {
 
           if (
             !currentChainData ||
-            !currentChainData.signedTransactions||
-            !currentChainData.starknet 
+            !currentChainData.signedTransactions ||
+            !currentChainData.starknet
           ) {
             console.error(`No Starknet client data for chain ${chainId}`);
             return;
           }
 
-          const {  account } = currentChainData.starknet;
-          const provider =starknetProvider;
-          
+          const { account,provider } = currentChainData.starknet;
+  
+
 
           // Run the specified number of transactions
           for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
@@ -2138,16 +2179,16 @@ export function useChainRace() {
               // Execute the transaction
               const { transaction_hash } = await account.execute([call], {
                 nonce,
-                maxFee: "0x1000000000000" 
+                maxFee: "0x1000000000000"
               });
-          
+
 
               console.log(`✅ Sent Starknet tx ${txIndex} | Hash: ${transaction_hash}`);
 
               // Wait for transaction confirmation
-           await provider.waitForTransaction(transaction_hash, {
-  successStates: ["ACCEPTED_ON_L2"]
-});
+              await provider.waitForTransaction(transaction_hash, {
+                successStates: ["ACCEPTED_ON_L2"]
+              });
 
               // Calculate transaction latency
               const txEndTime = Date.now();
