@@ -1,5 +1,5 @@
 import { Chain } from "viem";
-import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet, somniaTestnet, seiTestnet, base, sei, sonic } from "viem/chains";
+import { megaethTestnet, baseSepolia, monadTestnet, riseTestnet, somniaTestnet, seiTestnet, base, sei, sonic, arbitrum, arbitrumSepolia } from "viem/chains";
 import { solanaChains, type SolanaChainConfig } from "@/solana/config";
 import { sonicBlaze } from "./sonicblaze";
 import { fuelChains, type FuelChainConfig } from "@/fuel/config";
@@ -144,6 +144,25 @@ const seiMainnet_ = {
   layer: 'L1' as const,
 } as const as ChainConfig;
 
+const arbitrumSepolia_ = {
+  ...arbitrumSepolia,
+  rpcUrls: getRpcUrls(arbitrumSepolia, process.env.NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL),
+  testnet: true,
+  color: "#28A0F0",
+  logo: "/logos/arbitrum.png",
+  faucetUrl: "https://www.alchemy.com/faucets/arbitrum-sepolia",
+  layer: 'L2' as const,
+} as const as ChainConfig;
+
+const arbitrumMainnet_ = {
+  ...arbitrum,
+  rpcUrls: getRpcUrls(arbitrum, process.env.NEXT_PUBLIC_ARBITRUM_MAINNET_RPC_URL),
+  testnet: false,
+  color: "#28A0F0",
+  logo: "/logos/arbitrum.png",
+  layer: 'L2' as const,
+} as const as ChainConfig;
+
 // Add the EVM chains we want to include in the race (both testnet and mainnet)
 export const evmChains = [
   // Testnets
@@ -155,10 +174,12 @@ export const evmChains = [
   somniaTestnet_,
   seiTestnet_,
   hydraChainTestnet_,
+  arbitrumSepolia_,
   // Mainnets
   sonicMainnet,
   baseMainnet_,
-  seiMainnet_
+  seiMainnet_,
+  arbitrumMainnet_
 ];
 
 // All chains (EVM + Solana + Fuel + Aptos + SOON + Starknet)
