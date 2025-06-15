@@ -25,6 +25,18 @@ import {
 import { getGeo } from "@/lib/geo";
 import { saveRaceResults } from "@/lib/api";
 import { WalletUnlocked, bn, Provider, type TransactionRequest, ScriptTransactionRequest, type Coin, ResolvedOutput, OutputChange } from "fuels";
+import { useStarknetEmbeddedWallet } from "./useStarknetEmbeddedWallet";
+import { StarknetChainConfig } from "@/starknet/config";
+import { Erc20Abi } from "../util/erc20abi";
+import { STRK_ADDRESS } from "../util/erc20Contract";
+import {
+  cairo,
+  Call,
+  Contract,
+  RpcProvider, 
+} from "starknet";
+import { Account } from "starknet";
+
 
 export type ChainRaceStatus = "idle" | "funding" | "ready" | "racing" | "finished";
 
@@ -107,6 +119,10 @@ function isSoonChain(chain: AnyChainConfig): chain is SoonChainConfig {
   return 'id' in chain && typeof chain.id === 'string' && chain.id.startsWith('soon-');
 }
 
+function isStarknetChain(chain: AnyChainConfig): chain is StarknetChainConfig {
+  return chain.id === "starknet-testnet" || chain.id === "starknet-mainnet";
+}
+
 // Helper function to get fallback RPC endpoints for Solana
 function getSolanaFallbackEndpoints(chain: SolanaChainConfig): string[] {
   const fallbackEndpoints = [
@@ -130,11 +146,13 @@ export function useChainRace() {
   const { publicKey: solanaPublicKey, keypair: solanaKeypair, isReady: solanaReady } = useSolanaEmbeddedWallet();
   const { wallet: fuelWallet, isReady: fuelReady } = useFuelEmbeddedWallet();
   const { account: aptosAccount, address: aptosAddress, isReady: aptosReady } = useAptosEmbeddedWallet();
-  const { publicKey: soonPublicKey, keypair: soonKeypair, isReady: soonReady } = useSoonEmbeddedWallet();
+  const { publicKey: soonPublicKey, keypair: soonKeypair  } = useSoonEmbeddedWallet();
+  const { starknetprivateKey, starknetaccount, starknetisReady } = useStarknetEmbeddedWallet();
   const [status, setStatus] = useState<ChainRaceStatus>("idle");
   const [balances, setBalances] = useState<ChainBalance[]>([]);
   const [results, setResults] = useState<RaceResult[]>([]);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
+
   const [transactionCount, setTransactionCount] = useState<TransactionCount>(() => {
     // Load saved transaction count from localStorage if available
     // if (typeof window !== 'undefined') {
@@ -236,6 +254,8 @@ export function useChainRace() {
         } else if (isSoonChain(chain)) {
           // For SOON chains, we'll consider them as L2 for filtering purposes (SVM rollup)
           if (layerFilter !== 'L2') return false;
+        } else if (isStarknetChain(chain)) {
+          if (layerFilter !== 'L2') return false;
         } else {
           // For Solana chains, we'll consider them as L1 for filtering purposes
           if (layerFilter !== 'L1') return false;
@@ -259,7 +279,12 @@ export function useChainRace() {
         const isTestnet = chain.testnet;
         if (networkFilter === 'Testnet' && !isTestnet) return false;
         if (networkFilter === 'Mainnet' && isTestnet) return false;
-      } else {
+      }else if (isStarknetChain(chain)) {
+        const isTestnet = chain.testnet;
+        if (networkFilter === 'Testnet' && !isTestnet) return false;
+        if (networkFilter === 'Mainnet' && isTestnet) return false;
+      }
+      else {
         // For Solana chains, check if it's mainnet or testnet based on the id
         const isMainnet = chain.id === 'solana-mainnet';
         if (networkFilter === 'Mainnet' && !isMainnet) return false;
@@ -272,17 +297,16 @@ export function useChainRace() {
 
   // Define checkBalances before using it in useEffect
   const checkBalances = useCallback(async () => {
-    if (!account || !solanaReady || !solanaPublicKey || !fuelReady || !fuelWallet || !aptosReady || !aptosAccount) return;
+    if (!account || !solanaReady || !solanaPublicKey || !fuelReady || !fuelWallet || !aptosReady || !aptosAccount || !starknetaccount) {
+      setIsLoadingBalances(false);
+      return;
+    }
 
     setIsLoadingBalances(true);
 
     try {
       // Check balances for all chains regardless of selection
       const activeChains = allChains;
-
-
-      // Add a small delay to avoid overwhelming network requests on page load
-      await new Promise(resolve => setTimeout(resolve, 500));
 
       const balancePromises = activeChains.map(async (chain) => {
         // Function to attempt a balance check with retries
@@ -312,7 +336,8 @@ export function useChainRace() {
                 balance,
                 hasBalance,
               };
-            } else if (isSolanaChain(chain)) {
+            } 
+            else if (isSolanaChain(chain)) {
               // Solana chain balance check with fallback endpoints
               const fallbackEndpoints = getSolanaFallbackEndpoints(chain);
 
@@ -341,7 +366,8 @@ export function useChainRace() {
 
               // If all endpoints failed, throw the last error
               throw lastError || new Error(`All Solana RPC endpoints failed for ${chain.id}`);
-            } else if (isSoonChain(chain)) {
+            } 
+               else if (isSoonChain(chain)) {
               // SOON chain balance check - similar to Solana since it's SVM-based
               if (!soonPublicKey) {
                 throw new Error("SOON wallet not initialized");
@@ -380,7 +406,48 @@ export function useChainRace() {
                 balance,
                 hasBalance,
               };
-            } else if (isAptosChain(chain)) {
+            } 
+            else if (isStarknetChain(chain)) {
+              // Starknet balance check
+              if (!starknetaccount?.address) {
+                return {
+                  chainId,
+                  balance: BigInt(0),
+                  hasBalance: false,
+                  error: "No Starknet account address available"
+                };
+              }
+
+              try {
+                const provider = new RpcProvider({ nodeUrl: chain.endpoint });
+                const erc20Contract = new Contract(Erc20Abi, STRK_ADDRESS, provider);
+
+                // Get the balance using the correct method
+                const starknetBalance = await erc20Contract.balance_of(starknetaccount.address);
+                
+                
+                // Convert BN to bigint for consistency
+                balance = BigInt(starknetBalance.toString());
+
+                // Minimum balance threshold: 0.02 STRK (20000000000000000 since STRK uses 18 decimals)
+                const hasBalance = balance > BigInt("20000000000000000");
+
+                return {
+                  chainId,
+                  balance,
+                  hasBalance,
+                };
+              } catch (error) {
+                console.error('🔍 [Chain Derby] Starknet balance check failed:', error);
+                return {
+                  chainId,
+                  balance: BigInt(0),
+                  hasBalance: false,
+                  error: (error as Error).message
+                };
+              }
+            } 
+            else if (isAptosChain(chain)) {
               // Aptos balance check
               const config = new AptosConfig({
                 network: chain.network as Network,
@@ -449,16 +516,11 @@ export function useChainRace() {
 
       const newBalances = await Promise.all(balancePromises);
 
-      // Log any errors that occurred during balance checks
-      newBalances.forEach(balance => {
-        if (balance.error) {
-          const chain = allChains.find(c => (isEvmChain(c) ? c.id : c.id) === balance.chainId);
-          console.warn(`Error checking balance for ${chain?.name || balance.chainId}: ${balance.error}`);
-        }
-      });
-
       // Don't update state if component unmounted during the operation
-      if (!account) return;
+      if (!account) {
+        setIsLoadingBalances(false);
+        return;
+      }
 
       setBalances(newBalances);
 
@@ -467,20 +529,17 @@ export function useChainRace() {
         selectedChains.includes(b.chainId)
       );
 
-      // If all selected chains have balance, set status to ready
-      const allSelectedFunded = selectedBalances.length > 0 && selectedBalances.every(b => b.hasBalance);
+      const fundedChains = newBalances
+        .filter(b => b.hasBalance)
+        .map(b => b.chainId);
 
-      // Only proceed with FUNDED chains
-      const fundedChains = selectedBalances.filter(b => b.hasBalance).map(b => b.chainId);
+      const allSelectedFunded = selectedBalances.every(b => b.hasBalance);
 
-      // Only update status if not in racing or finished state
       if (status !== "racing" && status !== "finished") {
         if (allSelectedFunded && selectedBalances.length > 0) {
           setStatus("ready");
         } else if (fundedChains.length > 0) {
-          // If at least one chain is funded, allow race to start with those chains
           setStatus("ready");
-          // Update selected chains to only those that are funded
           setSelectedChains(fundedChains);
         } else {
           setStatus("funding");
@@ -488,22 +547,37 @@ export function useChainRace() {
       }
     } catch (error) {
       console.error("Failed to check balances:", error);
+      if (status !== "racing" && status !== "finished") {
+        setStatus("funding");
+      }
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [account, solanaPublicKey, solanaReady, fuelWallet, fuelReady, aptosAccount, aptosReady, soonPublicKey, soonReady, status, selectedChains]);
+  }, [account, solanaPublicKey, solanaReady, fuelWallet, fuelReady, aptosAccount, aptosReady, status, selectedChains, allChains]);
 
-  // Effect to check balances automatically when wallet is ready
+  // Effect to check initial balances
   useEffect(() => {
-    if (isReady && solanaReady && account && solanaPublicKey && fuelReady && fuelWallet && aptosReady && aptosAccount && soonReady && soonPublicKey && status !== "racing" && status !== "finished") {
-      // Add a small delay to ensure everything is fully initialized
-      const timer = setTimeout(() => {
-        checkBalances();
-      }, 1000);
+    const checkInitialBalances = async () => {
+      if (isLoadingBalances || status === "racing" || status === "finished") {
+        return;
+      }
 
-      return () => clearTimeout(timer);
-    }
-  }, [isReady, solanaReady, account, solanaPublicKey, fuelWallet, fuelReady, aptosReady, aptosAccount, status, checkBalances]);
+      if (!account || !solanaReady || !solanaPublicKey || !fuelReady || !fuelWallet || !aptosReady || !aptosAccount || !starknetaccount) {
+        return;
+      }
+
+      try {
+        await checkBalances();
+      } catch (error) {
+        console.error('Error checking balances:', error);
+        setIsLoadingBalances(false);
+      }
+    };
+
+    checkInitialBalances();
+  }, [status, checkBalances, account, solanaReady, solanaPublicKey, fuelReady, fuelWallet, aptosReady, aptosAccount, starknetaccount]);
+
+  
 
   // Effect to save race results when race finishes
   useEffect(() => {
@@ -630,6 +704,10 @@ export function useChainRace() {
       connection?: Connection; // For Solana chains
       aptos?: Aptos; // For Aptos chains
       wallet?: WalletUnlocked; // For Fuel chains
+      starknet?: {
+        provider: RpcProvider;
+        account: Account;
+      };
     }>();
 
     try {
@@ -745,10 +823,10 @@ export function useChainRace() {
               for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
                 try {
                   // Create transaction with unique transfer amount to avoid duplicate signatures
-                  const transaction = new Transaction({
-                    feePayer: solanaKeypair.publicKey,
-                    recentBlockhash: blockhash,
-                  }).add(
+                  const transaction = new Transaction();
+                  transaction.feePayer = solanaKeypair.publicKey;
+                  transaction.recentBlockhash = blockhash;
+                  transaction.add(
                     SystemProgram.transfer({
                       fromPubkey: solanaKeypair.publicKey,
                       toPubkey: solanaKeypair.publicKey,
@@ -799,10 +877,10 @@ export function useChainRace() {
                 for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
                   try {
                     // Create transaction with unique transfer amount to avoid duplicate signatures
-                    const transaction = new Transaction({
-                      feePayer: soonKeypair.publicKey,
-                      recentBlockhash: blockhash,
-                    }).add(
+                    const transaction = new Transaction();
+                    transaction.feePayer = soonKeypair.publicKey;
+                    transaction.recentBlockhash = blockhash;
+                    transaction.add(
                       SystemProgram.transfer({
                         fromPubkey: soonKeypair.publicKey,
                         toPubkey: soonKeypair.publicKey,
@@ -834,7 +912,29 @@ export function useChainRace() {
             } catch (error) {
               throw new Error(`SOON RPC failed for ${chain.id} during setup: ${error instanceof Error ? error.message : String(error)}`);
             }
-          } else if (isFuelChain(chain)) {
+          } 
+          else if (isStarknetChain(chain)) {
+            try {
+              const provider = new RpcProvider({ nodeUrl: chain.endpoint });
+              const account = new Account(
+                provider, 
+                starknetaccount?.address ?? "", 
+                starknetprivateKey ?? ""
+              );    
+              return {
+                chainId,
+                nonce: Number(await account.getNonce()),
+                starknet: {
+                  provider,
+                  account
+                }
+              };
+            } catch (error) {
+              throw new Error(`Starknet RPC failed for ${chain.id} during setup: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }
+          
+          else if (isFuelChain(chain)) {
             // Fuel chain data fetching
             const provider = new Provider(chain.rpcUrls.public.http[0]);
             const wallet = fuelWallet as WalletUnlocked;
@@ -965,7 +1065,9 @@ export function useChainRace() {
       // Store fetched data in the Map
       const results = await Promise.all(chainDataPromises);
       results.forEach((data) => {
-        chainData.set(data.chainId, data);
+        if (data && data.chainId !== undefined) {
+          chainData.set(data.chainId, data);
+        }
       });
     } catch (error) {
       console.error("Error prefetching chain data:", error);
@@ -1880,6 +1982,109 @@ export function useChainRace() {
               break;
             }
           }
+        } else if (isStarknetChain(chain)) {
+          const currentChainData = chainData.get(chainId);
+
+          if (!currentChainData) {
+            console.error(`No wallet data for Starknet chain ${chainId}`);
+            return;
+          }
+
+          const provider = new RpcProvider({ nodeUrl: chain.endpoint });
+          const account = new Account(
+            provider, 
+            starknetaccount?.address ?? "", 
+            starknetprivateKey ?? ""
+          );
+          const erc20Contract = new Contract(Erc20Abi, STRK_ADDRESS, account);
+          
+          for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
+            const currentNonce = await account.getNonce();
+            try {
+              // Skip if chain already had an error
+              const currentState = results.find(r => r.chainId === chainId);
+              if (currentState?.status === "error") {
+                break;
+              }
+
+              const startTime = Date.now();
+              const amount = cairo.uint256((txIndex + 1) * 10 ** 18);
+              
+              const transferCall: Call = erc20Contract.populate("transfer", {
+                recipient: starknetaccount?.address ?? "",
+                amount: amount,
+              });
+
+              const { transaction_hash: transferTxHash } = await account.execute(
+                transferCall,
+                {
+                  nonce: currentNonce,
+                  version: 3,
+                }
+              );
+              // Wait for transaction confirmation
+              await provider.waitForTransaction(transferTxHash);         
+              // Calculate transaction latency
+              const endTime = Date.now();
+              const txLatency = endTime - startTime;
+
+              // Update results with transaction hash and latency
+              setResults(prev =>
+                prev.map(r => {
+                  if (r.chainId === chainId) {
+                    const newLatencies = [...r.txLatencies, txLatency];
+                    const txCompleted = r.txCompleted + 1;
+                    const allTxCompleted = txCompleted >= transactionCount;
+
+                    const totalLatency = newLatencies.reduce((sum, val) => sum + val, 0);
+                    const averageLatency = Math.round(totalLatency / newLatencies.length);
+
+                    return {
+                      ...r,
+                      txHash: transferTxHash as `0x${string}`,
+                      txCompleted,
+                      status: allTxCompleted ? "success" : "racing",
+                      txLatencies: newLatencies,
+                      averageLatency,
+                      totalLatency
+                    };
+                  }
+                  return r;
+                })
+              );
+
+            } catch (error) {
+              console.error(`Starknet race error for chain ${chainId}, tx #${txIndex}:`, error);
+
+              let errorMessage = "Starknet transaction failed";
+              if (error instanceof Error) {
+                const fullMessage = error.message;
+                if (fullMessage.includes("insufficient funds")) {
+                  errorMessage = "Insufficient STRK for transaction fees.";
+                } else if (fullMessage.includes("nonce")) {
+                  errorMessage = "Transaction nonce issue. Please try again.";
+                } else if (fullMessage.includes("timeout")) {
+                  errorMessage = "Starknet network timeout. Please try again.";
+                } else {
+                  const firstLine = fullMessage.split('\n')[0];
+                  errorMessage = firstLine || fullMessage;
+                }
+              }
+
+              setResults(prev =>
+                prev.map(r =>
+                  r.chainId === chainId
+                    ? {
+                      ...r,
+                      status: "error" as const,
+                      error: errorMessage
+                    }
+                    : r
+                )
+              );
+              break;
+            }
+          }
         }
 
       } catch (error) {
@@ -1981,5 +2186,9 @@ export function useChainRace() {
     aptosAccount,
     aptosAddress,
     aptosReady,
+    // Starknet wallet information
+    starknetaccount,
+    starknetprivateKey,
+    starknetisReady,
   };
 }

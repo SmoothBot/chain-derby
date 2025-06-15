@@ -27,7 +27,21 @@ export default function Home() {
   const { status } = useChainRaceContext();
   // Create a stabilized status to prevent flickering
   const [stableStatus, setStableStatus] = useState<ChainRaceStatus>(status);
+  const [isInitialized, setIsInitialized] = useState(false);
   
+  useEffect(() => {
+    const initializeApp = async () => {
+      if (isInitialized) {
+        return;
+      }
+      // Add a small delay to ensure all components are mounted
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setIsInitialized(true);
+    };
+
+    initializeApp();
+  }, [isInitialized]);
+
   useEffect(() => {
     const isRacingOrFinished = (s: ChainRaceStatus) => s === "racing" || s === "finished";
     const isInitialState = (s: ChainRaceStatus) => s === "idle" || s === "funding" || s === "ready";
