@@ -8,7 +8,7 @@ import { useSolanaEmbeddedWallet } from "./useSolanaEmbeddedWallet";
 import { useFuelEmbeddedWallet } from "./useFuelEmbeddedWallet";
 import { useAptosEmbeddedWallet } from "./useAptosEmbeddedWallet";
 import { useSoonEmbeddedWallet } from "./useSoonEmbeddedWallet";
-import { createSyncPublicClient, syncTransport } from "rise-shred-client";
+import { syncActions } from "shreds/viem";
 import { Connection, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import type { SolanaChainConfig } from "@/solana/config";
 import type { FuelChainConfig } from "@/fuel/config";
@@ -1048,11 +1048,11 @@ export function useChainRace() {
 
 
               if (chain.id === 11155931) {
-                // For RISE testnet, use the sync client
-                const RISESyncClient = createSyncPublicClient({
+                // For RISE testnet, use the sync client with decorator pattern
+                const RISESyncClient = createPublicClient({
                   chain,
-                  transport: syncTransport(chain.rpcUrls.default.http[0]),
-                });
+                  transport: http(),
+                }).extend(syncActions);
 
                 // Use pre-signed transaction if available, otherwise sign now
                 const txToSend = signedTransaction;
@@ -1064,7 +1064,9 @@ export function useChainRace() {
                 }
 
                 // Send the transaction and get receipt in one call
-                const receipt = await RISESyncClient.sendRawTransactionSync(txToSend as `0x${string}`);
+                const receipt = await RISESyncClient.sendRawTransactionSync({
+                  serializedTransaction: txToSend as `0x${string}`
+                });
 
                 // Verify receipt
                 if (!receipt || !receipt.transactionHash) {
