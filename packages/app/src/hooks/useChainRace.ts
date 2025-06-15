@@ -297,7 +297,8 @@ export function useChainRace() {
 
   // Define checkBalances before using it in useEffect
   const checkBalances = useCallback(async () => {
-    if (!account || !solanaReady || !solanaPublicKey || !fuelReady || !fuelWallet || !aptosReady || !aptosAccount || !starknetaccount) {
+    // Only require EVM wallet to be ready - other wallets can load independently
+    if (!account) {
       setIsLoadingBalances(false);
       return;
     }
@@ -338,6 +339,16 @@ export function useChainRace() {
               };
             } 
             else if (isSolanaChain(chain)) {
+              // Skip if Solana wallet not ready yet
+              if (!solanaReady || !solanaPublicKey) {
+                return {
+                  chainId,
+                  balance: BigInt(0),
+                  hasBalance: false,
+                  error: "Solana wallet still loading..."
+                };
+              }
+              
               // Solana chain balance check with fallback endpoints
               const fallbackEndpoints = getSolanaFallbackEndpoints(chain);
 
@@ -368,9 +379,14 @@ export function useChainRace() {
               throw lastError || new Error(`All Solana RPC endpoints failed for ${chain.id}`);
             } 
                else if (isSoonChain(chain)) {
-              // SOON chain balance check - similar to Solana since it's SVM-based
+              // Skip if SOON wallet not ready yet
               if (!soonPublicKey) {
-                throw new Error("SOON wallet not initialized");
+                return {
+                  chainId,
+                  balance: BigInt(0),
+                  hasBalance: false,
+                  error: "SOON wallet still loading..."
+                };
               }
               
               try {
@@ -392,6 +408,16 @@ export function useChainRace() {
                 throw error;
               }
             } else if (isFuelChain(chain)) {
+              // Skip if Fuel wallet not ready yet
+              if (!fuelReady || !fuelWallet) {
+                return {
+                  chainId,
+                  balance: BigInt(0),
+                  hasBalance: false,
+                  error: "Fuel wallet still loading..."
+                };
+              }
+              
               // Fuel balance check
               const provider = new Provider(chain.rpcUrls.public.http[0]);
               fuelWallet.connect(provider);
@@ -448,6 +474,16 @@ export function useChainRace() {
               }
             } 
             else if (isAptosChain(chain)) {
+              // Skip if Aptos wallet not ready yet
+              if (!aptosReady || !aptosAccount) {
+                return {
+                  chainId,
+                  balance: BigInt(0),
+                  hasBalance: false,
+                  error: "Aptos wallet still loading..."
+                };
+              }
+              
               // Aptos balance check
               const config = new AptosConfig({
                 network: chain.network as Network,
@@ -538,11 +574,21 @@ export function useChainRace() {
       if (status !== "racing" && status !== "finished") {
         if (allSelectedFunded && selectedBalances.length > 0) {
           setStatus("ready");
-        } else if (fundedChains.length > 0) {
-          setStatus("ready");
-          setSelectedChains(fundedChains);
         } else {
-          setStatus("funding");
+          // Only remove unfunded chains from selection, don't auto-select all funded chains
+          const fundedSelectedChains = selectedChains.filter(chainId => 
+            fundedChains.includes(chainId)
+          );
+          
+          if (fundedSelectedChains.length > 0) {
+            setStatus("ready");
+            // Only update selection if some selected chains became unfunded
+            if (fundedSelectedChains.length !== selectedChains.length) {
+              setSelectedChains(fundedSelectedChains);
+            }
+          } else {
+            setStatus("funding");
+          }
         }
       }
     } catch (error) {
@@ -553,7 +599,7 @@ export function useChainRace() {
     } finally {
       setIsLoadingBalances(false);
     }
-  }, [account, solanaPublicKey, solanaReady, fuelWallet, fuelReady, aptosAccount, aptosReady, status, selectedChains, allChains]);
+  }, [account, solanaPublicKey, solanaReady, fuelWallet, fuelReady, aptosAccount, aptosReady, soonPublicKey, starknetaccount, status, selectedChains, allChains]);
 
   // Effect to check initial balances
   useEffect(() => {
@@ -562,7 +608,8 @@ export function useChainRace() {
         return;
       }
 
-      if (!account || !solanaReady || !solanaPublicKey || !fuelReady || !fuelWallet || !aptosReady || !aptosAccount || !starknetaccount) {
+      // Only require EVM wallet to be ready - other wallets can load independently
+      if (!account) {
         return;
       }
 
@@ -575,7 +622,7 @@ export function useChainRace() {
     };
 
     checkInitialBalances();
-  }, [status, checkBalances, account, solanaReady, solanaPublicKey, fuelReady, fuelWallet, aptosReady, aptosAccount, starknetaccount]);
+  }, [status, checkBalances, account, solanaReady, solanaPublicKey, fuelReady, fuelWallet, aptosReady, aptosAccount, soonPublicKey, starknetaccount]);
 
   
 
@@ -683,7 +730,7 @@ export function useChainRace() {
 
   // Start the race across selected chains
   const startRace = async () => {
-    if (!account || !privateKey || !solanaKeypair || !fuelWallet || !aptosAccount || status !== "ready") return;
+    if (!account || !privateKey || status !== "ready") return;
 
     setStatus("racing");
 
@@ -791,6 +838,11 @@ export function useChainRace() {
               signedTransactions
             };
           } else if (isSolanaChain(chain)) {
+            // Skip if Solana wallet not ready yet
+            if (!solanaKeypair) {
+              throw new Error(`Solana wallet not ready for ${chain.id}`);
+            }
+            
             // Solana chain data fetching - try fallback endpoints to find working RPC
             const fallbackEndpoints = getSolanaFallbackEndpoints(chain);
 
@@ -935,6 +987,11 @@ export function useChainRace() {
           }
           
           else if (isFuelChain(chain)) {
+            // Skip if Fuel wallet not ready yet
+            if (!fuelWallet) {
+              throw new Error(`Fuel wallet not ready for ${chain.id}`);
+            }
+            
             // Fuel chain data fetching
             const provider = new Provider(chain.rpcUrls.public.http[0]);
             const wallet = fuelWallet as WalletUnlocked;
@@ -976,6 +1033,11 @@ export function useChainRace() {
               signedTransactions,
             };
           } else if (isAptosChain(chain)) {
+            // Skip if Aptos wallet not ready yet
+            if (!aptosAccount) {
+              throw new Error(`Aptos wallet not ready for ${chain.id}`);
+            }
+            
             // Aptos chain data fetching
             const config = new AptosConfig({
               network: (chain as AptosChainConfig).network as Network,
@@ -1358,6 +1420,23 @@ export function useChainRace() {
           }
 
         } else if (isSolanaChain(chain)) {
+          // Skip if Solana wallet not ready yet
+          if (!solanaKeypair) {
+            console.error(`Solana wallet not ready for ${chainId}`);
+            setResults(prev =>
+              prev.map(r =>
+                r.chainId === chainId
+                  ? {
+                    ...r,
+                    status: "error" as const,
+                    error: "Solana wallet not ready"
+                  }
+                  : r
+              )
+            );
+            return;
+          }
+          
           // Solana chain transaction processing
           const currentChainData = chainData.get(chainId);
 

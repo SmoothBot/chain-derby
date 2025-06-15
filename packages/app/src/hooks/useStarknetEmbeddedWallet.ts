@@ -138,7 +138,10 @@ import { useEffect, useState } from "react";
         const newAccount = new Account(provider, AXcontractFinalAddress, privateKeyAX);
         localStorage.setItem(
           LOCAL_STORAGE_KEY,
-          JSON.stringify({ privateKey: privateKeyAX, newAccount })
+          JSON.stringify({ 
+            privateKey: privateKeyAX, 
+            address: AXcontractFinalAddress 
+          })
         );
 
         setWalletState({
@@ -174,10 +177,22 @@ import { useEffect, useState } from "react";
       if (storedWallet) {
         try {
           updateProgress("Loading saved wallet...", 50);
-          const { privateKey, newAccount } = JSON.parse(storedWallet);
+          const walletData = JSON.parse(storedWallet);
+          
+          // Validate that we have the required data
+          if (!walletData.privateKey || !walletData.address) {
+            throw new Error("Invalid wallet data in localStorage");
+          }
+          
+          const { privateKey, address } = walletData;
+          
+          // Properly reconstruct the Account object
+          const restoredAccount = new Account(provider, address, privateKey);
+          
+          updateProgress("Wallet restored successfully", 100);
           setWalletState({
             starknetprivateKey: privateKey,
-            starknetaccount: newAccount,
+            starknetaccount: restoredAccount,
             starknetisReady: true,
             progress: {
               step: "Ready",
@@ -186,6 +201,8 @@ import { useEffect, useState } from "react";
           });
         } catch (error) {
           console.error("Failed to restore wallet from localStorage:", error);
+          // Clear the corrupted data and create a new wallet
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
           createNewWallet();
         }
       } else {
