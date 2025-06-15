@@ -30,11 +30,11 @@ const OZ_ACCOUNT_CLASS_HASH =
   "0x061dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f";
 
 const SEPOLIA_PROVIDER = new RpcProvider({
-  nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_8",
+  nodeUrl:  "https://api.cartridge.gg/x/starknet/sepolia",
 });
 
 const MAINNET_PROVIDER = new RpcProvider({
-  nodeUrl: "https://starknet-mainnet.public.blastapi.io/rpc/v0_8",
+  nodeUrl: "https://api.cartridge.gg/x/starknet/mainnet",
 });
 
 

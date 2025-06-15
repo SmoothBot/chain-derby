@@ -23,7 +23,7 @@ export interface StarknetChainConfig {
     id: sepolia.id.toString(), // Use the Starknet Sepolia ID
     name: sepolia.name, // Use the Starknet Sepolia name
     network: sepolia.network, // Use the Starknet Sepolia network type
-    rpcUrl: process.env.NEXT_PUBLIC_APTOS_TESTNET_RPC_URL || 'https://starknet-sepolia.public.blastapi.io/rpc/v0_8',
+    rpcUrl: process.env.NEXT_PUBLIC_APTOS_TESTNET_RPC_URL ||  "https://api.cartridge.gg/x/starknet/sepolia",
     indexerUrl: 'https://indexer-testnet.staging.gcp.aptosdev.com/v1/graphql',
     faucetUrl: 'https://starknet-faucet.vercel.app/',
     explorerUrl: 'https://sepolia.voyager.online',
@@ -42,7 +42,7 @@ export interface StarknetChainConfig {
   id: mainnet.id.toString(),
   name: 'Starknet Mainnet',
   network: 'mainnet',
-  rpcUrl: process.env.NEXT_PUBLIC_STARKNET_MAINNET_RPC_URL || 'https://starknet-mainnet.public.blastapi.io/rpc/v0_8',
+  rpcUrl: process.env.NEXT_PUBLIC_STARKNET_MAINNET_RPC_URL || 'https://api.cartridge.gg/x/starknet/mainnet',
   indexerUrl: 'https://indexer.mainnet.starknet.io/v1/graphql',
   faucetUrl: undefined, 
   explorerUrl: 'https://voyager.online',

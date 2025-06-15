@@ -53,7 +53,7 @@ import {
   OutputChange,
 } from "fuels";
 import { mainnet, sepolia } from "@starknet-react/chains";
-import { Account, CallData, RpcProvider, uint256 } from "starknet";
+import { Account, cairo, CallData, RpcProvider, uint256 } from "starknet";
 const STRK_TOKEN_ADDRESS =
   "0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D";
 export type ChainRaceStatus =
@@ -1190,7 +1190,7 @@ export function useChainRace() {
                 // Dummy transfer: 0 STRK to self
                 const calldata = CallData.compile({
                   recipient: starknetAccount!.address,
-                  amount: uint256.bnToUint256(BigInt(0)),
+                  amount: cairo.uint256("0"),
                 });
 
                 const txCall = {
@@ -2222,14 +2222,20 @@ export function useChainRace() {
 
               // Execute the transaction
               const { transaction_hash } = await account.execute([call], {
-                nonce
+                nonce,
+                version: 3,
               });
+
 
 
               console.log(`✅ Sent Starknet tx ${txIndex} | Hash: ${transaction_hash}`);
 
-              // Wait for transaction confirmation
-              await provider.waitForTransaction(transaction_hash);
+
+
+              await provider.waitForTransaction(transaction_hash, {
+                successStates: ['ACCEPTED_ON_L2']
+              });
+
 
               // Calculate transaction latency
               const txEndTime = Date.now();
