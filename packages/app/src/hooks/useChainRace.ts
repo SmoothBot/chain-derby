@@ -2102,7 +2102,10 @@ export function useChainRace() {
                 }
               );
               // Wait for transaction confirmation
-              await provider.waitForTransaction(transferTxHash);         
+              await provider.waitForTransaction(transferTxHash,{
+                retryInterval: 400,
+                successStates: ['ACCEPTED_ON_L2']
+              });         
               // Calculate transaction latency
               const endTime = Date.now();
               const txLatency = endTime - startTime;
