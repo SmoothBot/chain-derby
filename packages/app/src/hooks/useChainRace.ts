@@ -1167,18 +1167,17 @@ export function useChainRace() {
             };
           } else if (isStarknetChain(chain)) {
             const provider = new RpcProvider({ nodeUrl: chain?.rpcUrl });
-            console.log({ chain });
+
 
             console.log(`Fetching Starknet data for ${chain.name}...`);
 
-            console.log(starknetAccount, provider, starknetAccount!.address);
 
             // Get the current on-chain nonce
             const startingNonceResponse = await provider.getNonceForAddress(
               starknetAccount!.address
             );
 
-            console.log({ startingNonceResponse })
+
 
             const currentNonce = BigInt(startingNonceResponse);
 
@@ -1250,7 +1249,7 @@ export function useChainRace() {
               signedTransactions: [],
             };
           } else {
-            // Solana fallback
+
             return {
               chainId,
               nonce: 0,
