@@ -30,11 +30,11 @@ const OZ_ACCOUNT_CLASS_HASH =
   "0x061dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f";
 
 const SEPOLIA_PROVIDER = new RpcProvider({
-  nodeUrl:  "https://api.cartridge.gg/x/starknet/sepolia",
+  nodeUrl:  "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_8/3S-9NEC4IdEbT_sx5zfRd",
 });
 
 const MAINNET_PROVIDER = new RpcProvider({
-  nodeUrl: "https://api.cartridge.gg/x/starknet/mainnet",
+  nodeUrl: "https://starknet-mainnet.g.alchemy.com/starknet/version/rpc/v0_8/3S-9NEC4IdEbT_sx5zfRd",
 });
 
 

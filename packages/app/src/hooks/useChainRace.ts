@@ -754,7 +754,11 @@ export function useChainRace() {
                 numericChainId = 999997; // Aptos mainnet gets ID 999997
               } else if (result.chainId.toLowerCase().includes(sepolia.id.toString())) {
                 numericChainId = 10000000;
-              } else {
+              }else if(result.chainId.toLowerCase().includes(mainnet.id.toString())){
+                numericChainId = 10000001;
+
+              }
+               else {
                 numericChainId = 999996; // Other string IDs get 999996
               }
             } else {
@@ -2183,6 +2187,8 @@ export function useChainRace() {
             return;
           }
 
+          console.log(chain?.rpcUrl)
+
 
 
 
@@ -2222,7 +2228,7 @@ export function useChainRace() {
               // Execute the transaction
               const { transaction_hash } = await account.execute([call], {
                 nonce,
-                version: 3,
+
               });
 
 
