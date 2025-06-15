@@ -5,6 +5,7 @@ import { useChainRaceContext } from "@/providers/ChainRaceProvider";
 import { useSolanaEmbeddedWallet } from "@/hooks/useSolanaEmbeddedWallet";
 import { useFuelEmbeddedWallet } from "@/hooks/useFuelEmbeddedWallet";
 import { useAptosEmbeddedWallet } from "@/hooks/useAptosEmbeddedWallet";
+import { useSoonEmbeddedWallet } from "@/hooks/useSoonEmbeddedWallet";
 import { CopyIcon, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
@@ -13,19 +14,21 @@ export function EmbeddedWallet() {
   const { publicKey: solanaPublicKey, secret: solanaSecret, isReady: solanaReady } = useSolanaEmbeddedWallet();
   const { address: fuelAddress, secret: fuelSecret, isReady: fuelReady } = useFuelEmbeddedWallet();
   const { address: aptosAddress, privateKey: aptosPrivateKey, isReady: aptosReady } = useAptosEmbeddedWallet();
-  const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | null>(null);
+  const { publicKey: soonPublicKey, secret: soonSecret, isReady: soonReady } = useSoonEmbeddedWallet();
+  const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | "soon-address" | "soon-key" | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [showSolanaKey, setShowSolanaKey] = useState(false);
   const [showFuelKey, setShowFuelKey] = useState(false);
   const [showAptosKey, setShowAptosKey] = useState(false);
+  const [showSoonKey, setShowSoonKey] = useState(false);
   
-  const copyToClipboard = (text: string, type: "address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key") => {
+  const copyToClipboard = (text: string, type: "address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | "soon-address" | "soon-key") => {
     navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
   };
   
-  if (!account || !privateKey || !solanaReady || !fuelReady || !aptosReady) {
+  if (!account || !privateKey || !solanaReady || !fuelReady || !aptosReady || !soonReady) {
     return (
       <Card className="w-full">
         <CardContent className="pt-6">
@@ -225,6 +228,54 @@ export function EmbeddedWallet() {
                   onClick={() => copyToClipboard(aptosPrivateKey, "aptos-key")}
                 >
                   {copied === "aptos-key" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Separator */}
+        <Separator />
+
+        {/* SOON Wallet Section */}
+        {soonPublicKey && soonSecret && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">SOON Wallet</h3>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {soonPublicKey.toBase58()}
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => copyToClipboard(soonPublicKey.toBase58(), "soon-address")}
+                >
+                  {copied === "soon-address" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Private Key (Do not share!)</label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {showSoonKey ? `${soonSecret.substring(0, 18)}...${soonSecret.substring(soonSecret.length - 18)}` : "••••••••••••••••••••"}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowSoonKey(!showSoonKey)}
+                >
+                  {showSoonKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => copyToClipboard(soonSecret, "soon-key")}
+                >
+                  {copied === "soon-key" ? "Copied!" : <CopyIcon size={18} />}
                 </Button>
               </div>
             </div>
