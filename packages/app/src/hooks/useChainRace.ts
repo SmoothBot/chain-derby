@@ -8,7 +8,7 @@ import { useSolanaEmbeddedWallet } from "./useSolanaEmbeddedWallet";
 import { useFuelEmbeddedWallet } from "./useFuelEmbeddedWallet";
 import { useAptosEmbeddedWallet } from "./useAptosEmbeddedWallet";
 import { useSoonEmbeddedWallet } from "./useSoonEmbeddedWallet";
-// import { createSyncPublicClient, syncTransport } from "rise-shred-client";
+import { syncActions } from "shreds/viem";
 import { Connection, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import type { SolanaChainConfig } from "@/solana/config";
 import type { FuelChainConfig } from "@/fuel/config";
@@ -429,8 +429,8 @@ export function useChainRace() {
                 // Convert BN to bigint for consistency
                 balance = BigInt(starknetBalance.toString());
 
-                // Minimum balance threshold: 0.02 STRK (2_000_000_000_000_000_0 since STRK uses 18 decimals)
-                const hasBalance = balance > BigInt(2_000_000_000_000_000_0);
+                // Minimum balance threshold: 0.02 STRK (20000000000000000 since STRK uses 18 decimals)
+                const hasBalance = balance > BigInt("20000000000000000");
 
                 return {
                   chainId,
@@ -823,10 +823,10 @@ export function useChainRace() {
               for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
                 try {
                   // Create transaction with unique transfer amount to avoid duplicate signatures
-                  const transaction = new Transaction({
-                    feePayer: solanaKeypair.publicKey,
-                    recentBlockhash: blockhash,
-                  }).add(
+                  const transaction = new Transaction();
+                  transaction.feePayer = solanaKeypair.publicKey;
+                  transaction.recentBlockhash = blockhash;
+                  transaction.add(
                     SystemProgram.transfer({
                       fromPubkey: solanaKeypair.publicKey,
                       toPubkey: solanaKeypair.publicKey,
@@ -877,10 +877,10 @@ export function useChainRace() {
                 for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
                   try {
                     // Create transaction with unique transfer amount to avoid duplicate signatures
-                    const transaction = new Transaction({
-                      feePayer: soonKeypair.publicKey,
-                      recentBlockhash: blockhash,
-                    }).add(
+                    const transaction = new Transaction();
+                    transaction.feePayer = soonKeypair.publicKey;
+                    transaction.recentBlockhash = blockhash;
+                    transaction.add(
                       SystemProgram.transfer({
                         fromPubkey: soonKeypair.publicKey,
                         toPubkey: soonKeypair.publicKey,
@@ -1149,35 +1149,36 @@ export function useChainRace() {
                 : null;
 
 
-              // if (chain.id === 11155931) {
-              //   // For RISE testnet, use the sync client
-              //   const RISESyncClient = createSyncPublicClient({
-              //     chain,
-              //     transport: syncTransport(chain.rpcUrls.default.http[0]),
-              //   });
+              if (chain.id === 11155931) {
+                // For RISE testnet, use the sync client with decorator pattern
+                const RISESyncClient = createPublicClient({
+                  chain,
+                  transport: http(),
+                }).extend(syncActions);
 
-              //   // Use pre-signed transaction if available, otherwise sign now
-              //   const txToSend = signedTransaction;
+                // Use pre-signed transaction if available, otherwise sign now
+                const txToSend = signedTransaction;
 
 
-              //   // Check if we have a valid transaction
-              //   if (!txToSend || typeof txToSend !== 'string') {
-              //     throw new Error(`Invalid transaction format for RISE tx #${txIndex}`);
-              //   }
+                // Check if we have a valid transaction
+                if (!txToSend || typeof txToSend !== 'string') {
+                  throw new Error(`Invalid transaction format for RISE tx #${txIndex}`);
+                }
 
-              //   // Send the transaction and get receipt in one call
-              //   const receipt = await RISESyncClient.sendRawTransactionSync(txToSend as `0x${string}`);
+                // Send the transaction and get receipt in one call
+                const receipt = await RISESyncClient.sendRawTransactionSync({
+                  serializedTransaction: txToSend as `0x${string}`
+                });
 
-              //   // Verify receipt
-              //   if (!receipt || !receipt.transactionHash) {
-              //     throw new Error(`RISE sync transaction sent but no receipt returned for tx #${txIndex}`);
-              //   }
-              //   txHash = receipt.transactionHash;
-              //   // Calculate transaction latency for RISE
-              //   const txEndTime = Date.now();
-              //   txLatency = txEndTime - txStartTime; // Using outer txLatency variable here
-              // } 
-              if (chain.id === 6342) {
+                // Verify receipt
+                if (!receipt || !receipt.transactionHash) {
+                  throw new Error(`RISE sync transaction sent but no receipt returned for tx #${txIndex}`);
+                }
+                txHash = receipt.transactionHash;
+                // Calculate transaction latency for RISE
+                const txEndTime = Date.now();
+                txLatency = txEndTime - txStartTime; // Using outer txLatency variable here
+              } else if (chain.id === 6342) {
                 // For MegaETH testnet, use the custom realtime_sendRawTransaction method
 
                 // Use pre-signed transaction if available, otherwise sign now
