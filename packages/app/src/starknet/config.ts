@@ -65,7 +65,7 @@ export interface StarknetChainConfig {
     starknetMainnet
   ];
   
-  // Helper function to check if a chain is an Aptos chain
+  // Helper function to check if a chain is an starknet chain
   export function isStarknetChain(chain: unknown): chain is StarknetChainConfig {
     console.log("Checking if chain is Starknet:", chain);
     return typeof chain === 'object' && 
