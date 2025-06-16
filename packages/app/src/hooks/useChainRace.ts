@@ -2238,7 +2238,7 @@ export function useChainRace() {
 
 
               await provider.waitForTransaction(transaction_hash, {
-                      retryInterval: 150,
+                      retryInterval: 200,
                 successStates: ['ACCEPTED_ON_L2']
               });
 
