@@ -323,123 +323,143 @@ export function useChainRace() {
       ChainAdapterFactory.create(chain, walletStates)
     );
 
-    // Initialize results
-    const initialResults = activeAdapters.map(adapter => ({
-      chainId: adapter.chainId,
-      name: adapter.name,
-      color: adapter.color,
-      logo: adapter.logo,
-      status: "pending" as const,
-      txCompleted: 0,
-      txTotal: transactionCount,
-      txLatencies: [],
-    }));
-
-    setResults(initialResults);
-
-    // Run races in parallel for each adapter
-    activeAdapters.forEach(async (adapter) => {
-      try {
-        // Update status to racing
-        setResults(prev =>
-          prev.map(r => r.chainId === adapter.chainId ? { ...r, status: "racing" } : r)
-        );
-
-        // Prepare transactions
-        const preparedTransactions = await adapter.prepareTransactions(transactionCount);
-
-        // Execute transactions sequentially for each chain
-        for (let i = 0; i < transactionCount; i++) {
-          try {
-            // Check if chain already errored
-            const currentState = results.find(r => r.chainId === adapter.chainId);
-            if (currentState?.status === "error") break;
-
-            const preparedTx = preparedTransactions[i];
-            if (!preparedTx) continue;
-
-            // Execute transaction
-            const result = await adapter.executeTransaction(preparedTx);
-
-            if (!result.success) {
-              throw new Error(result.error || "Transaction failed");
-            }
-
-            // Update results
-            setResults(prev => {
-              const updatedResults = prev.map(r => {
-                if (r.chainId === adapter.chainId) {
-                  const newLatencies = [...r.txLatencies, result.latency];
-                  const txCompleted = r.txCompleted + 1;
-                  const allTxCompleted = txCompleted >= transactionCount;
-
-                  const totalLatency = newLatencies.reduce((sum, val) => sum + val, 0);
-                  const averageLatency = Math.round(totalLatency / newLatencies.length);
-
-                  return {
-                    ...r,
-                    txHash: result.hash || r.txHash,
-                    signature: result.signature || r.signature,
-                    txCompleted,
-                    status: allTxCompleted ? "success" as const : "racing" as const,
-                    txLatencies: newLatencies,
-                    averageLatency,
-                    totalLatency
-                  };
-                }
-                return r;
-              });
-
-              // Update positions
-              const finishedResults = updatedResults
-                .filter(r => r.status === "success")
-                .sort((a, b) => (a.averageLatency || Infinity) - (b.averageLatency || Infinity));
-
-              finishedResults.forEach((result, idx) => {
-                const position = idx + 1;
-                updatedResults.forEach((r, i) => {
-                  if (r.chainId === result.chainId) {
-                    updatedResults[i] = { ...r, position };
-                  }
-                });
-              });
-
-              return updatedResults;
-            });
-
-          } catch (error) {
-            console.error(`Race error for ${adapter.name}, tx #${i}:`, error);
-            
-            setResults(prev =>
-              prev.map(r =>
-                r.chainId === adapter.chainId
-                  ? {
-                    ...r,
-                    status: "error" as const,
-                    error: error instanceof Error ? error.message : "Transaction failed"
-                  }
-                  : r
-              )
-            );
-            break;
-          }
+    try {
+      // Pre-prepare all transactions for all adapters FIRST
+      const preparationPromises = activeAdapters.map(async (adapter) => {
+        try {
+          const preparedTransactions = await adapter.prepareTransactions(transactionCount);
+          return { adapter, preparedTransactions };
+        } catch (error) {
+          console.error(`Failed to prepare transactions for ${adapter.name}:`, error);
+          return { adapter, preparedTransactions: [], error };
         }
+      });
 
-      } catch (error) {
-        console.error(`Race initialization error for ${adapter.name}:`, error);
-        setResults(prev =>
-          prev.map(r =>
-            r.chainId === adapter.chainId
-              ? {
-                ...r,
-                status: "error" as const,
-                error: error instanceof Error ? error.message : "Race initialization failed"
+      const preparedData = await Promise.all(preparationPromises);
+
+      // Now initialize results AFTER preparation is complete
+      const initialResults = activeAdapters.map(adapter => ({
+        chainId: adapter.chainId,
+        name: adapter.name,
+        color: adapter.color,
+        logo: adapter.logo,
+        status: "pending" as const,
+        txCompleted: 0,
+        txTotal: transactionCount,
+        txLatencies: [],
+      }));
+
+      setResults(initialResults);
+
+      // Run races in parallel for each adapter with pre-prepared transactions
+      preparedData.forEach(async ({ adapter, preparedTransactions, error }) => {
+        try {
+          if (error) {
+            throw new Error(`Preparation failed: ${error}`);
+          }
+
+          // Update status to racing
+          setResults(prev =>
+            prev.map(r => r.chainId === adapter.chainId ? { ...r, status: "racing" } : r)
+          );
+
+          // Execute transactions sequentially for each chain
+          for (let i = 0; i < transactionCount; i++) {
+            try {
+              // Check if chain already errored
+              const currentState = results.find(r => r.chainId === adapter.chainId);
+              if (currentState?.status === "error") break;
+
+              const preparedTx = preparedTransactions[i];
+              if (!preparedTx) continue;
+
+              // Execute transaction
+              const result = await adapter.executeTransaction(preparedTx);
+
+              if (!result.success) {
+                throw new Error(result.error || "Transaction failed");
               }
-              : r
-          )
-        );
-      }
-    });
+
+              // Update results
+              setResults(prev => {
+                const updatedResults = prev.map(r => {
+                  if (r.chainId === adapter.chainId) {
+                    const newLatencies = [...r.txLatencies, result.latency];
+                    const txCompleted = r.txCompleted + 1;
+                    const allTxCompleted = txCompleted >= transactionCount;
+
+                    const totalLatency = newLatencies.reduce((sum, val) => sum + val, 0);
+                    const averageLatency = Math.round(totalLatency / newLatencies.length);
+
+                    return {
+                      ...r,
+                      txHash: result.hash || r.txHash,
+                      signature: result.signature || r.signature,
+                      txCompleted,
+                      status: allTxCompleted ? "success" as const : "racing" as const,
+                      txLatencies: newLatencies,
+                      averageLatency,
+                      totalLatency
+                    };
+                  }
+                  return r;
+                });
+
+                // Update positions
+                const finishedResults = updatedResults
+                  .filter(r => r.status === "success")
+                  .sort((a, b) => (a.averageLatency || Infinity) - (b.averageLatency || Infinity));
+
+                finishedResults.forEach((result, idx) => {
+                  const position = idx + 1;
+                  updatedResults.forEach((r, i) => {
+                    if (r.chainId === result.chainId) {
+                      updatedResults[i] = { ...r, position };
+                    }
+                  });
+                });
+
+                return updatedResults;
+              });
+
+            } catch (error) {
+              console.error(`Race error for ${adapter.name}, tx #${i}:`, error);
+              
+              setResults(prev =>
+                prev.map(r =>
+                  r.chainId === adapter.chainId
+                    ? {
+                      ...r,
+                      status: "error" as const,
+                      error: error instanceof Error ? error.message : "Transaction failed"
+                    }
+                    : r
+                )
+              );
+              break;
+            }
+          }
+
+        } catch (error) {
+          console.error(`Race initialization error for ${adapter.name}:`, error);
+          setResults(prev =>
+            prev.map(r =>
+              r.chainId === adapter.chainId
+                ? {
+                  ...r,
+                  status: "error" as const,
+                  error: error instanceof Error ? error.message : "Race initialization failed"
+                }
+                : r
+            )
+          );
+        }
+      });
+
+    } catch (error) {
+      console.error("Error preparing race:", error);
+      setStatus("ready"); // Reset status on preparation failure
+    }
 
     // Check if race is complete periodically
     const checkRaceComplete = setInterval(() => {
