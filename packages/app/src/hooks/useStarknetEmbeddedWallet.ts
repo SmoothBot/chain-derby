@@ -107,7 +107,10 @@ import { useEffect, useState } from "react";
       
         const { transaction_hash: transferTxHash } =
           await account0.execute(transferCall, { version: 3 });
-        await provider.waitForTransaction(transferTxHash);
+        await provider.waitForTransaction(transferTxHash,{
+          retryInterval: 400,
+          successStates: ['ACCEPTED_ON_L2']
+        });
         
         updateProgress("Crunching the numbers...", 40);
         const balanceofnewaccountTransfer =
@@ -132,7 +135,10 @@ import { useEffect, useState } from "react";
         updateProgress("Deploying account...", 80);
         const { transaction_hash: AXdAth, contract_address: AXcontractFinalAddress } =
           await accountAX.deployAccount(deployAccountPayload, { version: 3 });
-        await provider.waitForTransaction(AXdAth);
+        await provider.waitForTransaction(AXdAth,{
+          retryInterval: 400,
+          successStates: ['ACCEPTED_ON_L2']
+        });
 
         updateProgress("Finalizing setup...", 90);
         const newAccount = new Account(provider, AXcontractFinalAddress, privateKeyAX);

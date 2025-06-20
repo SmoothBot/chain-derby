@@ -13,6 +13,7 @@ const CHAIN_COLOR_MAP: Record<number | string, string> = {
   'solana-testnet': 'chain-solana', // Solana Testnet
   'solana-devnet': 'chain-solana',  // Solana Devnet
   'solana-mainnet': 'chain-solana', // Solana Mainnet
+  'pwr-testnet': 'chain-pwr',       // PWR Testnet
 };
 
 /**
