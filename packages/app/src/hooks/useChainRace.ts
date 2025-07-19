@@ -8,7 +8,7 @@ import { useSolanaEmbeddedWallet } from "./useSolanaEmbeddedWallet";
 import { useFuelEmbeddedWallet } from "./useFuelEmbeddedWallet";
 import { useAptosEmbeddedWallet } from "./useAptosEmbeddedWallet";
 import { useSoonEmbeddedWallet } from "./useSoonEmbeddedWallet";
-import { syncActions } from "shreds/viem";
+import { shredActions } from "shreds/viem";
 import { Connection, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import type { SolanaChainConfig } from "@/solana/config";
 import type { FuelChainConfig } from "@/fuel/config";
@@ -1216,7 +1216,7 @@ export function useChainRace() {
                 const RISESyncClient = createPublicClient({
                   chain,
                   transport: http(),
-                }).extend(syncActions);
+                }).extend(shredActions);
 
                 // Use pre-signed transaction if available, otherwise sign now
                 const txToSend = signedTransaction;
