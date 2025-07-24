@@ -27,6 +27,8 @@ import { saveRaceResults } from "@/lib/api";
 import { WalletUnlocked, bn, Provider, type TransactionRequest, ScriptTransactionRequest, type Coin, ResolvedOutput, OutputChange } from "fuels";
 import { useStarknetEmbeddedWallet } from "./useStarknetEmbeddedWallet";
 import { StarknetChainConfig } from "@/starknet/config";
+import { usePwrEmbeddedWallet } from "./usePwrEmbeddedWallet";
+import { PwrChainConfig } from "@/pwr/config";
 import { Erc20Abi } from "../util/erc20abi";
 import { STRK_ADDRESS } from "../util/erc20Contract";
 import {
@@ -123,6 +125,10 @@ function isStarknetChain(chain: AnyChainConfig): chain is StarknetChainConfig {
   return chain.id === "starknet-testnet" || chain.id === "starknet-mainnet";
 }
 
+function isPwrChain(chain: AnyChainConfig): chain is PwrChainConfig {
+  return chain.id === "pwr-testnet" || chain.id === "pwr-mainnet";
+}
+
 // Helper function to get fallback RPC endpoints for Solana
 function getSolanaFallbackEndpoints(chain: SolanaChainConfig): string[] {
   const fallbackEndpoints = [
@@ -148,6 +154,7 @@ export function useChainRace() {
   const { account: aptosAccount, address: aptosAddress, isReady: aptosReady } = useAptosEmbeddedWallet();
   const { publicKey: soonPublicKey, keypair: soonKeypair  } = useSoonEmbeddedWallet();
   const { starknetprivateKey, starknetaccount, starknetisReady } = useStarknetEmbeddedWallet();
+  const { wallet: pwrWallet, address: pwrAddress, isReady: pwrReady } = usePwrEmbeddedWallet();
   const [status, setStatus] = useState<ChainRaceStatus>("idle");
   const [balances, setBalances] = useState<ChainBalance[]>([]);
   const [results, setResults] = useState<RaceResult[]>([]);
@@ -256,6 +263,8 @@ export function useChainRace() {
           if (layerFilter !== 'L2') return false;
         } else if (isStarknetChain(chain)) {
           if (layerFilter !== 'L2') return false;
+        } else if (isPwrChain(chain)) {
+          if (chain.layer !== layerFilter) return false;
         } else {
           // For Solana chains, we'll consider them as L1 for filtering purposes
           if (layerFilter !== 'L1') return false;
@@ -279,12 +288,15 @@ export function useChainRace() {
         const isTestnet = chain.testnet;
         if (networkFilter === 'Testnet' && !isTestnet) return false;
         if (networkFilter === 'Mainnet' && isTestnet) return false;
-      }else if (isStarknetChain(chain)) {
+      } else if (isStarknetChain(chain)) {
         const isTestnet = chain.testnet;
         if (networkFilter === 'Testnet' && !isTestnet) return false;
         if (networkFilter === 'Mainnet' && isTestnet) return false;
-      }
-      else {
+      } else if (isPwrChain(chain)) {
+        const isTestnet = chain.testnet;
+        if (networkFilter === 'Testnet' && !isTestnet) return false;
+        if (networkFilter === 'Mainnet' && isTestnet) return false;
+      } else {
         // For Solana chains, check if it's mainnet or testnet based on the id
         const isMainnet = chain.id === 'solana-mainnet';
         if (networkFilter === 'Mainnet' && !isMainnet) return false;
@@ -501,6 +513,34 @@ export function useChainRace() {
                 balance,
                 hasBalance,
               };
+            } else if (isPwrChain(chain)) {
+              // PWR chain balance check
+              if (!pwrReady || !pwrWallet) {
+                return {
+                  chainId,
+                  balance: BigInt(0),
+                  hasBalance: false,
+                  error: "PWR wallet still loading..."
+                };
+              }
+
+              try {
+                const balanceResponse = await pwrWallet.getBalance();
+                
+                // Convert to bigint for consistency
+                balance = BigInt(balanceResponse);
+                // Minimum balance threshold: 0.001 PWR (assuming 18 decimals like ETH)
+                const hasBalance = balance > BigInt(1e15);
+
+                return {
+                  chainId,
+                  balance,
+                  hasBalance,
+                };
+              } catch (error) {
+                console.error(`PWR balance check failed for ${chain.id}:`, error);
+                throw error;
+              }
             } else {
               throw new Error(`Unsupported chain type: ${chainId}`);
             }
@@ -2102,7 +2142,10 @@ export function useChainRace() {
                 }
               );
               // Wait for transaction confirmation
-              await provider.waitForTransaction(transferTxHash);         
+              await provider.waitForTransaction(transferTxHash,{
+                retryInterval: 400,
+                successStates: ['ACCEPTED_ON_L2']
+              });         
               // Calculate transaction latency
               const endTime = Date.now();
               const txLatency = endTime - startTime;
@@ -2144,6 +2187,136 @@ export function useChainRace() {
                   errorMessage = "Transaction nonce issue. Please try again.";
                 } else if (fullMessage.includes("timeout")) {
                   errorMessage = "Starknet network timeout. Please try again.";
+                } else {
+                  const firstLine = fullMessage.split('\n')[0];
+                  errorMessage = firstLine || fullMessage;
+                }
+              }
+
+              setResults(prev =>
+                prev.map(r =>
+                  r.chainId === chainId
+                    ? {
+                      ...r,
+                      status: "error" as const,
+                      error: errorMessage
+                    }
+                    : r
+                )
+              );
+              break;
+            }
+          }
+        } else if (isPwrChain(chain)) {
+          // PWR chain transaction processing
+          if (!pwrWallet) {
+            console.error(`PWR wallet not ready for ${chainId}`);
+            setResults(prev =>
+              prev.map(r =>
+                r.chainId === chainId
+                  ? {
+                    ...r,
+                    status: "error" as const,
+                    error: "PWR wallet not ready"
+                  }
+                  : r
+              )
+            );
+            return;
+          }
+
+          // Run the specified number of transactions
+          for (let txIndex = 0; txIndex < transactionCount; txIndex++) {
+            try {
+              // Skip if chain already had an error
+              const currentState = results.find(r => r.chainId === chainId);
+              if (currentState?.status === "error") {
+                break;
+              }
+
+              let txLatency = 0;
+              const txStartTime = Date.now();
+
+              // Send PWR transfer transaction (self-transfer with 0 amount)
+              const response = await pwrWallet.transferPWR(pwrAddress!, BigInt(0));
+
+              if (!response.success) {
+                throw new Error(`PWR transaction failed: ${response.message}`);
+              }
+
+              // Calculate transaction latency
+              const txEndTime = Date.now();
+              txLatency = txEndTime - txStartTime;
+
+              // Update result with transaction hash
+              setResults(prev =>
+                prev.map(r =>
+                  r.chainId === chainId
+                    ? { ...r, txHash: response.hash as Hex }
+                    : r
+                )
+              );
+
+              // Transaction confirmed, update completed count and track latencies
+              setResults((prev) => {
+                const updatedResults = prev.map(r => {
+                  if (r.chainId === chainId) {
+                    const newLatencies = [...r.txLatencies, txLatency];
+                    const txCompleted = r.txCompleted + 1;
+                    const allTxCompleted = txCompleted >= transactionCount;
+
+                    const totalLatency = newLatencies.length > 0
+                      ? newLatencies.reduce((sum, val) => sum + val, 0)
+                      : undefined;
+
+                    const averageLatency = totalLatency !== undefined
+                      ? Math.round(totalLatency / newLatencies.length)
+                      : undefined;
+
+                    const newStatus: "pending" | "racing" | "success" | "error" =
+                      allTxCompleted ? "success" : "racing";
+
+                    return {
+                      ...r,
+                      txCompleted,
+                      status: newStatus,
+                      txLatencies: newLatencies,
+                      averageLatency,
+                      totalLatency
+                    };
+                  }
+                  return r;
+                });
+
+                // Only determine rankings when chains finish all transactions
+                const finishedResults = updatedResults
+                  .filter(r => r.status === "success")
+                  .sort((a, b) => (a.averageLatency || Infinity) - (b.averageLatency || Infinity));
+
+                // Assign positions to finished results
+                finishedResults.forEach((result, idx) => {
+                  const position = idx + 1;
+                  updatedResults.forEach((r, i) => {
+                    if (r.chainId === result.chainId) {
+                      updatedResults[i] = { ...r, position };
+                    }
+                  });
+                });
+
+                return updatedResults;
+              });
+            } catch (error) {
+              console.error(`PWR race error for chain ${chainId}, tx #${txIndex}:`, error);
+
+              let errorMessage = "PWR transaction failed";
+
+              if (error instanceof Error) {
+                const fullMessage = error.message;
+
+                if (fullMessage.includes("insufficient funds")) {
+                  errorMessage = "Insufficient PWR for transaction fees.";
+                } else if (fullMessage.includes("timeout")) {
+                  errorMessage = "PWR network timeout. Please try again.";
                 } else {
                   const firstLine = fullMessage.split('\n')[0];
                   errorMessage = firstLine || fullMessage;

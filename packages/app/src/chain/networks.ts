@@ -6,6 +6,7 @@ import { fuelChains, type FuelChainConfig } from "@/fuel/config";
 import { aptosChains, type AptosChainConfig } from "@/aptos/config";
 import { soonChains, type SoonChainConfig } from "@/soon/config";
 import { starknetChains, type StarknetChainConfig } from "@/starknet/config";
+import { pwrChains, type PwrChainConfig } from "@/pwr/config";
 
 export interface ChainConfig extends Chain {
   testnet: boolean;
@@ -203,11 +204,11 @@ export const evmChains = [
   optimismMainnet_
 ];
 
-// All chains (EVM + Solana + Fuel + Aptos + SOON + Starknet)
-export const allChains = [...evmChains, ...solanaChains, ...fuelChains, ...aptosChains, ...soonChains, ...starknetChains];
+// All chains (EVM + Solana + Fuel + Aptos + SOON + Starknet + PWR)
+export const allChains = [...evmChains, ...solanaChains, ...fuelChains, ...aptosChains, ...soonChains, ...starknetChains, ...pwrChains];
 
 // Backward compatibility - rename raceChains to evmChains
 export const raceChains = evmChains;
 
 // Export chain type union
-export type AnyChainConfig = ChainConfig | SolanaChainConfig | FuelChainConfig | AptosChainConfig | SoonChainConfig | StarknetChainConfig;
+export type AnyChainConfig = ChainConfig | SolanaChainConfig | FuelChainConfig | AptosChainConfig | SoonChainConfig | StarknetChainConfig | PwrChainConfig;

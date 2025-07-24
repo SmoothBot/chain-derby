@@ -7,6 +7,7 @@ import { useFuelEmbeddedWallet } from "@/hooks/useFuelEmbeddedWallet";
 import { useAptosEmbeddedWallet } from "@/hooks/useAptosEmbeddedWallet";
 import { useSoonEmbeddedWallet } from "@/hooks/useSoonEmbeddedWallet";
 import { useStarknetEmbeddedWallet } from "@/hooks/useStarknetEmbeddedWallet";
+import { usePwrEmbeddedWallet } from "@/hooks/usePwrEmbeddedWallet";
 import { CopyIcon, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
@@ -17,21 +18,23 @@ export function EmbeddedWallet() {
   const { address: aptosAddress, privateKey: aptosPrivateKey, isReady: aptosReady } = useAptosEmbeddedWallet();
   const { publicKey: soonPublicKey, secret: soonSecret, isReady: soonReady } = useSoonEmbeddedWallet();
   const { starknetprivateKey, starknetaccount, progress } = useStarknetEmbeddedWallet();
-  const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | "soon-address" | "soon-key" | "starknet-address" | "starknet-key" | null>(null);
+  const { address: pwrAddress, seedPhrase: pwrSeedPhrase, isReady: pwrReady } = usePwrEmbeddedWallet();
+  const [copied, setCopied] = useState<"address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | "soon-address" | "soon-key" | "starknet-address" | "starknet-key" | "pwr-address" | "pwr-key" | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [showSolanaKey, setShowSolanaKey] = useState(false);
   const [showFuelKey, setShowFuelKey] = useState(false);
   const [showAptosKey, setShowAptosKey] = useState(false);
   const [showSoonKey, setShowSoonKey] = useState(false);
   const [showStarknetKey, setShowStarknetKey] = useState(false);
+  const [showPwrKey, setShowPwrKey] = useState(false);
 
-  const copyToClipboard = (text: string, type: "address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | "soon-address" | "soon-key" | "starknet-address" | "starknet-key") => {
+  const copyToClipboard = (text: string, type: "address" | "key" | "sol-address" | "sol-key" | "fuel-address" | "fuel-key" | "aptos-address" | "aptos-key" | "soon-address" | "soon-key" | "starknet-address" | "starknet-key" | "pwr-address" | "pwr-key") => {
     navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
   };
 
-  if (!account || !privateKey || !solanaReady || !fuelReady || !aptosReady || !soonReady) {
+  if (!account || !privateKey || !solanaReady || !fuelReady || !aptosReady || !soonReady || !pwrReady) {
     return (
       <Card className="w-full">
         <CardContent className="pt-6">
@@ -344,6 +347,54 @@ export function EmbeddedWallet() {
                   className="h-full bg-primary transition-all duration-300 ease-in-out"
                   style={{ width: `${progress.percentage}%` }}
                 />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Separator */}
+        <Separator />
+
+        {/* PWR Wallet Section */}
+        {pwrAddress && pwrSeedPhrase && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">PWR Wallet</h3>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Wallet Address</label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {pwrAddress}
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => copyToClipboard(pwrAddress, "pwr-address")}
+                >
+                  {copied === "pwr-address" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Seed Phrase (Do not share!)</label>
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-accent/25 rounded-md text-sm font-mono flex-1 overflow-hidden text-ellipsis">
+                  {showPwrKey ? pwrSeedPhrase : "••••••••••••••••••••"}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowPwrKey(!showPwrKey)}
+                >
+                  {showPwrKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => copyToClipboard(pwrSeedPhrase, "pwr-key")}
+                >
+                  {copied === "pwr-key" ? "Copied!" : <CopyIcon size={18} />}
+                </Button>
               </div>
             </div>
           </div>
